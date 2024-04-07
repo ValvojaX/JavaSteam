@@ -1,0 +1,57 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.javasteam</groupId>
+        <artifactId>core</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>application</artifactId>
+    <packaging>jar</packaging>
+    <name>JavaSteam - Application</name>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <exec.maven.plugin.version>3.2.0</exec.maven.plugin.version>
+        <java.dotenv.version>5.2.2</java.dotenv.version>
+        <kotlin.stdlib.version>1.9.23</kotlin.stdlib.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.javasteam</groupId>
+            <artifactId>webapi</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>com.javasteam</groupId>
+            <artifactId>steam</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency> <!--Fixes vulnerability in java-dotenv-->
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-stdlib</artifactId>
+            <version>${kotlin.stdlib.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.cdimascio</groupId>
+            <artifactId>java-dotenv</artifactId>
+            <version>${java.dotenv.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>${exec.maven.plugin.version}</version>
+                <configuration>
+                    <mainClass>com.javasteam.BaseApplication</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

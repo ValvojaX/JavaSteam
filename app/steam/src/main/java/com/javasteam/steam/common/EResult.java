@@ -1,0 +1,145 @@
+package com.javasteam.steam.common;
+
+import lombok.NoArgsConstructor;
+
+/**
+ * Represents the result of an operation.
+ *
+ * @see <a href="https://partner.steamgames.com/doc/api/steam_api#EResult">Steam documentation -
+ *     EResult</a>
+ * @see <a
+ *     href="https://github.com/SteamRE/SteamKit/blob/master/Resources/SteamLanguage/eresult.steamd">SteamKit</a>
+ */
+@SuppressWarnings("unused")
+@NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+public class EResult {
+  public static final int Invalid = 0;
+  public static final int OK = 1;
+  public static final int Fail = 2;
+  public static final int NoConnection = 3;
+  public static final int InvalidPassword = 5;
+  public static final int LoggedInElsewhere = 6;
+  public static final int InvalidProtocolVer = 7;
+  public static final int InvalidParam = 8;
+  public static final int FileNotFound = 9;
+  public static final int Busy = 10;
+  public static final int InvalidState = 11;
+  public static final int InvalidName = 12;
+  public static final int InvalidEmail = 13;
+  public static final int DuplicateName = 14;
+  public static final int AccessDenied = 15;
+  public static final int Timeout = 16;
+  public static final int Banned = 17;
+  public static final int AccountNotFound = 18;
+  public static final int InvalidSteamID = 19;
+  public static final int ServiceUnavailable = 20;
+  public static final int NotLoggedOn = 21;
+  public static final int Pending = 22;
+  public static final int EncryptionFailure = 23;
+  public static final int InsufficientPrivilege = 24;
+  public static final int LimitExceeded = 25;
+  public static final int Revoked = 26;
+  public static final int Expired = 27;
+  public static final int AlreadyRedeemed = 28;
+  public static final int DuplicateRequest = 29;
+  public static final int AlreadyOwned = 30;
+  public static final int IPNotFound = 31;
+  public static final int PersistFailed = 32;
+  public static final int LockingFailed = 33;
+  public static final int LogonSessionReplaced = 34;
+  public static final int ConnectFailed = 35;
+  public static final int HandshakeFailed = 36;
+  public static final int IOFailure = 37;
+  public static final int RemoteDisconnect = 38;
+  public static final int ShoppingCartNotFound = 39;
+  public static final int Blocked = 40;
+  public static final int Ignored = 41;
+  public static final int NoMatch = 42;
+  public static final int AccountDisabled = 43;
+  public static final int ServiceReadOnly = 44;
+  public static final int AccountNotFeatured = 45;
+  public static final int AdministratorOK = 46;
+  public static final int ContentVersion = 47;
+  public static final int TryAnotherCM = 48;
+  public static final int PasswordRequiredToKickSession = 49;
+  public static final int AlreadyLoggedInElsewhere = 50;
+  public static final int Suspended = 51;
+  public static final int Cancelled = 52;
+  public static final int DataCorruption = 53;
+  public static final int DiskFull = 54;
+  public static final int RemoteCallFailed = 55;
+  public static final int PasswordUnset = 56;
+  public static final int ExternalAccountUnlinked = 57;
+  public static final int PSNTicketInvalid = 58;
+  public static final int ExternalAccountAlreadyLinked = 59;
+  public static final int RemoteFileConflict = 60;
+  public static final int IllegalPassword = 61;
+  public static final int SameAsPreviousValue = 62;
+  public static final int AccountLogonDenied = 63;
+  public static final int CannotUseOldPassword = 64;
+  public static final int InvalidLoginAuthCode = 65;
+  public static final int AccountLogonDeniedNoMail = 66;
+  public static final int HardwareNotCapableOfIPT = 67;
+  public static final int IPTInitError = 68;
+  public static final int ParentalControlRestricted = 69;
+  public static final int FacebookQueryError = 70;
+  public static final int ExpiredLoginAuthCode = 71;
+  public static final int IPLoginRestrictionFailed = 72;
+  public static final int AccountLockedDown = 73;
+  public static final int AccountLogonDeniedVerifiedEmailRequired = 74;
+  public static final int NoMatchingURL = 75;
+  public static final int BadResponse = 76;
+  public static final int RequirePasswordReEntry = 77;
+  public static final int ValueOutOfRange = 78;
+  public static final int UnexpectedError = 79;
+  public static final int Disabled = 80;
+  public static final int InvalidCEGSubmission = 81;
+  public static final int RestrictedDevice = 82;
+  public static final int RegionLocked = 83;
+  public static final int RateLimitExceeded = 84;
+  public static final int AccountLoginDeniedNeedTwoFactor = 85;
+  public static final int ItemDeleted = 86;
+  public static final int AccountLoginDeniedThrottle = 87;
+  public static final int TwoFactorCodeMismatch = 88;
+  public static final int TwoFactorActivationCodeMismatch = 89;
+  public static final int AccountAssociatedToMultiplePartners = 90;
+  public static final int NotModified = 91;
+  public static final int NoMobileDevice = 92;
+  public static final int TimeNotSynced = 93;
+  public static final int SMSCodeFailed = 94;
+  public static final int AccountLimitExceeded = 95;
+  public static final int AccountActivityLimitExceeded = 96;
+  public static final int PhoneActivityLimitExceeded = 97;
+  public static final int RefundToWallet = 98;
+  public static final int EmailSendFailure = 99;
+  public static final int NotSettled = 100;
+  public static final int NeedCaptcha = 101;
+  public static final int GSLTDenied = 102;
+  public static final int GSOwnerDenied = 103;
+  public static final int InvalidItemType = 104;
+  public static final int IPBanned = 105;
+  public static final int GSLTExpired = 106;
+  public static final int InsufficientFunds = 107;
+  public static final int TooManyPending = 108;
+  public static final int NoSiteLicensesFound = 109;
+  public static final int WGNetworkSendExceeded = 110;
+  public static final int AccountNotFriends = 111;
+  public static final int LimitedUserAccount = 112;
+  public static final int CantRemoveItem = 113;
+  public static final int AccountDeleted = 114;
+  public static final int ExistingUserCancelledLicense = 115;
+  public static final int CommunityCooldown = 116;
+  public static final int NoLauncherSpecified = 117;
+  public static final int MustAgreeToSSA = 118;
+  public static final int LauncherMigrated = 119;
+  public static final int SteamRealmMismatch = 120;
+  public static final int InvalidSignature = 121;
+  public static final int ParseFailure = 122;
+  public static final int NoVerifiedPhone = 123;
+  public static final int InsufficientBattery = 124;
+  public static final int ChargerRequired = 125;
+  public static final int CachedCredentialInvalid = 126;
+  public static final int PhoneNumberIsVOIP = 127;
+  public static final int NotSupported = 128;
+  public static final int FamilySizeLimitExceeded = 129;
+}

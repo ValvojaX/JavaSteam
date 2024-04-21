@@ -2,17 +2,23 @@ package com.javasteam.steam;
 
 import static com.javasteam.protobufs.EnumsClientserver.EMsg;
 import static com.javasteam.protobufs.SteammessagesBase.CMsgProtoBufHeader;
+import static com.javasteam.protobufs.SteammessagesClientserver.CMsgClientGamesPlayed;
+import static com.javasteam.protobufs.SteammessagesClientserverFriends.CMsgClientChangeStatus;
+import static com.javasteam.protobufs.SteammessagesClientserverFriends.CMsgClientPersonaState;
 import static com.javasteam.protobufs.SteammessagesClientserverLogin.CMsgClientLogon;
 import static com.javasteam.protobufs.SteammessagesClientserverLogin.CMsgClientLogonResponse;
 
 import com.javasteam.models.steam.BaseMsg;
+import com.javasteam.models.steam.BaseMsgHeader;
 import com.javasteam.models.steam.headers.MsgHeaderProto;
 import com.javasteam.models.steam.messages.ProtoMessage;
+import com.javasteam.steam.common.EPersonaState;
 import com.javasteam.steam.common.EResult;
 import com.javasteam.steam.steamid.SteamId;
 import com.javasteam.steam.steamid.Type;
 import com.javasteam.steam.steamid.Universe;
 import com.javasteam.webapi.endpoints.steamdirectory.SteamWebDirectoryRESTAPIClient;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import lombok.Getter;
@@ -48,6 +54,12 @@ public class SteamClient extends SteamCMClient {
 
   private void addMessageListeners() {
     this.addMessageListener(EMsg.k_EMsgClientLogOnResponse_VALUE, this::onClientLogonResponse);
+    this.addMessageListener(EMsg.k_EMsgClientPersonaState_VALUE, this::onClientPersonaState);
+  }
+
+  private void onClientPersonaState(
+      BaseMsg<MsgHeaderProto<CMsgProtoBufHeader>, CMsgClientPersonaState> msg) {
+    log.info("Received client persona state:\n{}", msg);
   }
 
   public void onClientLogonResponse(
@@ -143,5 +155,57 @@ public class SteamClient extends SteamCMClient {
 
     log.info("Sending client logon message:\n{}", message);
     this.write(message);
+  }
+
+  public void setState(EPersonaState state) {
+    var proto = CMsgClientChangeStatus.newBuilder().setPersonaState(state.getCode()).build();
+
+    var header =
+        CMsgProtoBufHeader.newBuilder(CMsgProtoBufHeader.getDefaultInstance())
+            .setSteamid(getSessionContext().getSteamId().toSteamId64())
+            .setClientSessionid(getSessionContext().getSessionId())
+            .build();
+
+    var message =
+        ProtoMessage.of(
+            EMsg.k_EMsgClientChangeStatus_VALUE,
+            MsgHeaderProto.of(EMsg.k_EMsgClientChangeStatus_VALUE, header).serialize(),
+            proto.toByteArray());
+
+    log.info("Sending change status message: {}", message);
+    write(message);
+  }
+
+  public void setGamesPlayed(List<Integer> appIds) {
+    var proto =
+        CMsgClientGamesPlayed.newBuilder(CMsgClientGamesPlayed.getDefaultInstance())
+            .addAllGamesPlayed(
+                appIds.stream()
+                    .map(
+                        appId ->
+                            CMsgClientGamesPlayed.GamePlayed.newBuilder().setGameId(appId).build())
+                    .toList())
+            .build();
+
+    var header =
+        CMsgProtoBufHeader.newBuilder(CMsgProtoBufHeader.getDefaultInstance())
+            .setSteamid(getSessionContext().getSteamId().toSteamId64())
+            .setClientSessionid(getSessionContext().getSessionId())
+            .build();
+
+    var message =
+        ProtoMessage.of(
+            EMsg.k_EMsgClientGamesPlayed_VALUE,
+            MsgHeaderProto.of(EMsg.k_EMsgClientGamesPlayed_VALUE, header).serialize(),
+            proto.toByteArray());
+
+    log.info("Sending games played message: {}", message);
+
+    write(message);
+  }
+
+  @Override
+  public <H extends BaseMsgHeader, T> void write(BaseMsg<H, T> msg) {
+    super.write(msg);
   }
 }

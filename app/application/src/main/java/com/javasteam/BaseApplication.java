@@ -1,5 +1,6 @@
 package com.javasteam;
 
+import com.javasteam.protobufs.EnumsClientserver;
 import com.javasteam.steam.SteamClient;
 import com.javasteam.webapi.RESTAPIClientProvider;
 import com.javasteam.webapi.endpoints.steamdirectory.SteamWebDirectoryRESTAPIClient;
@@ -18,6 +19,13 @@ public class BaseApplication {
     log.info("Application started");
     SteamClient steamClient = new SteamClient(webDirectoryClient);
     steamClient.connect();
-    steamClient.loginAnonymous();
+    steamClient.login(dotenv.get("STEAM_USERNAME"), dotenv.get("STEAM_PASSWORD"));
+
+    steamClient.addMessageListener(
+        EnumsClientserver.EMsg.k_EMsgClientLogOnResponse_VALUE,
+        msg -> {
+          log.info("Logged in: {}", msg);
+          steamClient.setGamesPlayed(List.of(730));
+        });
   }
 }

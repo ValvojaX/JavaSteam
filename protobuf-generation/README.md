@@ -17,3 +17,9 @@
 ### Notes
 
 - protoc version must match the version of the protobuf lib
+- game_coordinator_messages.proto is not included in the steam protobuf files. It must be manually added. It should
+  contain
+  messages needed for CMsgProtoBufHeader. Needed messages can be found
+  for example
+  from [CS2 protobufs](https://github.com/SteamDatabase/GameTracking-CS2/blob/master/Protobufs/steammessages.proto)
+  or [Dota 2 protoufs](https://github.com/SteamDatabase/GameTracking-Dota2/blob/master/Protobufs/steammessages.proto)

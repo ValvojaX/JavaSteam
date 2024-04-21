@@ -50,6 +50,10 @@ public class ListenerGroup {
     future.join();
   }
 
+  public <H extends BaseMsgHeader> void notifyMessageListeners(BaseMsg<H, Object> message) {
+    onMessage(message.getEmsg(), message);
+  }
+
   private <T> Consumer<T> exceptionGuard(Consumer<T> consumer) {
     return t -> {
       try {

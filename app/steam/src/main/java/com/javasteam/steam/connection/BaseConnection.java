@@ -43,6 +43,10 @@ public abstract class BaseConnection {
     listeners.waitForMessage(emsg);
   }
 
+  public <H extends BaseMsgHeader> void notifyMessageListeners(BaseMsg<H, Object> message) {
+    listeners.notifyMessageListeners(message);
+  }
+
   private void read() {
     if (!isConnected()) {
       return;

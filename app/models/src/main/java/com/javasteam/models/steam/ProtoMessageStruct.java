@@ -2,6 +2,10 @@ package com.javasteam.models.steam;
 
 import static com.javasteam.protobufs.EnumsClientserver.EMsg;
 import static com.javasteam.protobufs.SteammessagesBase.CMsgMulti;
+import static com.javasteam.protobufs.SteammessagesClientserver.CMsgClientGamesPlayed;
+import static com.javasteam.protobufs.SteammessagesClientserver2.CMsgGCClient;
+import static com.javasteam.protobufs.SteammessagesClientserverFriends.CMsgClientChangeStatus;
+import static com.javasteam.protobufs.SteammessagesClientserverFriends.CMsgClientPersonaState;
 import static com.javasteam.protobufs.SteammessagesClientserverLogin.CMsgClientLogon;
 import static com.javasteam.protobufs.SteammessagesClientserverLogin.CMsgClientLogonResponse;
 
@@ -25,7 +29,23 @@ public enum ProtoMessageStruct implements StructLoader<GeneratedMessage> {
       EMsg.k_EMsgClientLogOnResponse_VALUE,
       CMsgClientLogonResponse.class,
       CMsgClientLogonResponse::getDefaultInstance),
-  MULTI(EMsg.k_EMsgMulti_VALUE, CMsgMulti.class, CMsgMulti::getDefaultInstance);
+  MULTI(EMsg.k_EMsgMulti_VALUE, CMsgMulti.class, CMsgMulti::getDefaultInstance),
+  EMSG_CLIENT_TO_GC(
+      EMsg.k_EMsgClientToGC_VALUE, CMsgGCClient.class, CMsgGCClient::getDefaultInstance),
+  EMSG_CLIENT_FROM_GC(
+      EMsg.k_EMsgClientFromGC_VALUE, CMsgGCClient.class, CMsgGCClient::getDefaultInstance),
+  EMSG_CLIENT_GAMES_PLAYED(
+      EMsg.k_EMsgClientGamesPlayed_VALUE,
+      CMsgClientGamesPlayed.class,
+      CMsgClientGamesPlayed::getDefaultInstance),
+  EMSG_CLIENT_CHANGE_STATUS(
+      EMsg.k_EMsgClientChangeStatus_VALUE,
+      CMsgClientChangeStatus.class,
+      CMsgClientChangeStatus::getDefaultInstance),
+  EMSG_PERSONA_STATE(
+      EMsg.k_EMsgClientPersonaState_VALUE,
+      CMsgClientPersonaState.class,
+      CMsgClientPersonaState::getDefaultInstance);
 
   private final int emsg;
   private final Class<? extends GeneratedMessage> clazz;

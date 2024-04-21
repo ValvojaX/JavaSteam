@@ -49,6 +49,10 @@ public class SteamCMClient {
     this.socket.addMessageListener(emsg, listener);
   }
 
+  public <H extends BaseMsgHeader> void notifyMessageListeners(BaseMsg<H, Object> message) {
+    this.socket.notifyMessageListeners(message);
+  }
+
   public void waitForMessage(int emsg) {
     this.socket.waitForMessage(emsg);
   }

@@ -29,7 +29,7 @@ public class MsgHeaderProto<T extends GeneratedMessage> extends BaseMsgHeader {
   private int protoLength;
   private T proto;
 
-  public MsgHeaderProto(int protoLength) {
+  public MsgHeaderProto(int emsg, int protoLength) {
     super();
     this.emsg = 0;
     this.protoLength = protoLength;
@@ -40,11 +40,15 @@ public class MsgHeaderProto<T extends GeneratedMessage> extends BaseMsgHeader {
     return new MsgHeaderProto<>(emsg, proto.getSerializedSize(), proto);
   }
 
-  public static <T extends GeneratedMessage> MsgHeaderProto<T> of(byte[] data) {
+  public static <T extends GeneratedMessage> MsgHeaderProto<T> fromBytes(int emsg, byte[] data) {
     int protoLength = Serializer.unpack(data, ByteBuffer::getInt, ByteOrder.LITTLE_ENDIAN, 4);
-    MsgHeaderProto<T> msgHeader = new MsgHeaderProto<>(protoLength);
+    MsgHeaderProto<T> msgHeader = new MsgHeaderProto<>(emsg, protoLength);
     msgHeader.load(data);
     return msgHeader;
+  }
+
+  public static <T extends GeneratedMessage> MsgHeaderProto<T> fromBytes(byte[] data) {
+    return MsgHeaderProto.fromBytes(0, data);
   }
 
   public int getEmsgMasked() {

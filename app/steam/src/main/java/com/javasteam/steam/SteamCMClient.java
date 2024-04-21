@@ -84,8 +84,8 @@ public class SteamCMClient {
     Message<ChannelEncryptResponse> response =
         Message.of(
             EMsg.k_EMsgChannelEncryptResponse_VALUE,
-            MsgHeader.of(EMsg.k_EMsgChannelEncryptResponse_VALUE).serialize(),
-            res.serialize());
+            MsgHeader.of(EMsg.k_EMsgChannelEncryptResponse_VALUE),
+            res);
     log.debug("Sending channel encrypt response");
 
     this.write(response);

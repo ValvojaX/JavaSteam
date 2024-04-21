@@ -49,11 +49,11 @@ public class GameCoordinator {
 
     var header =
         ProtoUtils.isProto(response.getMsgtype())
-            ? GCMsgHeaderProto.of(response.getMsgtype(), response.getPayload().toByteArray())
-            : GCMsgHeader.of(response.getPayload().toByteArray());
+            ? GCMsgHeaderProto.fromBytes(response.getMsgtype(), response.getPayload().toByteArray())
+            : GCMsgHeader.fromBytes(response.getPayload().toByteArray());
 
     ProtoMessage message =
-        ProtoMessage.of(
+        ProtoMessage.fromBytes(
             response.getMsgtype(),
             header.serialize(),
             ArrayUtils.subarray(response.getPayload().toByteArray(), header.getSize()));
@@ -85,8 +85,8 @@ public class GameCoordinator {
     var message =
         ProtoMessage.of(
             EMsg.k_EMsgClientToGC_VALUE,
-            MsgHeaderProto.of(EMsg.k_EMsgClientToGC_VALUE, header).serialize(),
-            proto.toByteArray());
+            MsgHeaderProto.of(EMsg.k_EMsgClientToGC_VALUE, header),
+            proto);
 
     log.info("Sending message to GC: {}", message);
     steamClient.write(message);

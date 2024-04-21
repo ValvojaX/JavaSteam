@@ -110,8 +110,8 @@ public abstract class BaseConnection {
 
     BaseMsg<? extends BaseMsgHeader, Object> msg =
         ProtoUtils.isProto(EMsgId)
-            ? (BaseMsg) ProtoMessage.of(EMsg, message)
-            : (BaseMsg) Message.of(EMsg, message);
+            ? (BaseMsg) ProtoMessage.fromBytes(EMsg, message)
+            : (BaseMsg) Message.fromBytes(EMsg, message);
 
     listeners.onMessage(EMsg, msg);
   }

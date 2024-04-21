@@ -21,17 +21,26 @@ public class Message<T extends BaseStruct> extends BaseMsg<MsgHeader, T> {
     super(emsgId, data);
   }
 
-  public static <T extends BaseStruct> Message<T> of(int emsgId, byte[] data) {
+  public static <T extends BaseStruct> Message<T> of(int emsgId, MsgHeader header, T body) {
+    return new Message<>(emsgId, ArrayUtils.concat(header.serialize(), body.serialize()));
+  }
+
+  public static <T extends BaseStruct> Message<T> of(int emsgId, MsgHeader header) {
+    return new Message<>(emsgId, header.serialize());
+  }
+
+  public static <T extends BaseStruct> Message<T> fromBytes(int emsgId, byte[] data) {
     return new Message<>(emsgId, data);
   }
 
-  public static <T extends BaseStruct> Message<T> of(int emsgId, byte[] header, byte[] body) {
+  public static <T extends BaseStruct> Message<T> fromBytes(
+      int emsgId, byte[] header, byte[] body) {
     return new Message<>(emsgId, ArrayUtils.concat(header, body));
   }
 
   @Override
   public MsgHeader getMsgHeader() {
-    return MsgHeader.of(getData());
+    return MsgHeader.fromBytes(getData());
   }
 
   @Override

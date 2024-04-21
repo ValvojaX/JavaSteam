@@ -101,8 +101,8 @@ public class SteamClient extends SteamCMClient {
     ProtoMessage<CMsgProtoBufHeader, CMsgClientLogonResponse> message =
         ProtoMessage.of(
             EMsg.k_EMsgClientHeartBeat_VALUE,
-            MsgHeaderProto.of(EMsg.k_EMsgClientHeartBeat_VALUE, header).serialize(),
-            response.toByteArray());
+            MsgHeaderProto.of(EMsg.k_EMsgClientHeartBeat_VALUE, header),
+            response);
     this.write(message);
   }
 
@@ -123,8 +123,8 @@ public class SteamClient extends SteamCMClient {
     ProtoMessage<CMsgProtoBufHeader, CMsgClientLogon> message =
         ProtoMessage.of(
             EMsg.k_EMsgClientLogon_VALUE,
-            MsgHeaderProto.of(EMsg.k_EMsgClientLogon_VALUE, headerProto).serialize(),
-            logonMessage.toByteArray());
+            MsgHeaderProto.of(EMsg.k_EMsgClientLogon_VALUE, headerProto),
+            logonMessage);
 
     log.info("Sending client logon message:\n{}", message);
     this.write(message);
@@ -150,8 +150,8 @@ public class SteamClient extends SteamCMClient {
     ProtoMessage<CMsgProtoBufHeader, CMsgClientLogon> message =
         ProtoMessage.of(
             EMsg.k_EMsgClientLogon_VALUE,
-            MsgHeaderProto.of(EMsg.k_EMsgClientLogon_VALUE, headerProto).serialize(),
-            logonMessage.toByteArray());
+            MsgHeaderProto.of(EMsg.k_EMsgClientLogon_VALUE, headerProto),
+            logonMessage);
 
     log.info("Sending client logon message:\n{}", message);
     this.write(message);
@@ -169,8 +169,8 @@ public class SteamClient extends SteamCMClient {
     var message =
         ProtoMessage.of(
             EMsg.k_EMsgClientChangeStatus_VALUE,
-            MsgHeaderProto.of(EMsg.k_EMsgClientChangeStatus_VALUE, header).serialize(),
-            proto.toByteArray());
+            MsgHeaderProto.of(EMsg.k_EMsgClientChangeStatus_VALUE, header),
+            proto);
 
     log.info("Sending change status message: {}", message);
     write(message);
@@ -196,8 +196,8 @@ public class SteamClient extends SteamCMClient {
     var message =
         ProtoMessage.of(
             EMsg.k_EMsgClientGamesPlayed_VALUE,
-            MsgHeaderProto.of(EMsg.k_EMsgClientGamesPlayed_VALUE, header).serialize(),
-            proto.toByteArray());
+            MsgHeaderProto.of(EMsg.k_EMsgClientGamesPlayed_VALUE, header),
+            proto);
 
     log.info("Sending games played message: {}", message);
 

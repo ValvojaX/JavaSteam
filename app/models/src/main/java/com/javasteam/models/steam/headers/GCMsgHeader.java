@@ -27,7 +27,7 @@ public class GCMsgHeader extends BaseMsgHeader {
     this.sourceJobId = -1;
   }
 
-  public static GCMsgHeader of(byte[] data) {
+  public static GCMsgHeader fromBytes(byte[] data) {
     GCMsgHeader gcMsgHeader = new GCMsgHeader();
     gcMsgHeader.load(data);
     return gcMsgHeader;

@@ -24,18 +24,28 @@ public class ProtoMessage<H extends GeneratedMessage, T extends GeneratedMessage
   }
 
   public static <H extends GeneratedMessage, T extends GeneratedMessage> ProtoMessage<H, T> of(
-      int emsgId, byte[] header) {
-    return new ProtoMessage<>(emsgId, header);
+      int emsgId, MsgHeaderProto<H> header, T body) {
+    return new ProtoMessage<>(emsgId, ArrayUtils.concat(header.serialize(), body.toByteArray()));
   }
 
   public static <H extends GeneratedMessage, T extends GeneratedMessage> ProtoMessage<H, T> of(
-      int emsgId, byte[] header, byte[] body) {
+      int emsgId, MsgHeaderProto<H> header) {
+    return new ProtoMessage<>(emsgId, header.serialize());
+  }
+
+  public static <H extends GeneratedMessage, T extends GeneratedMessage>
+      ProtoMessage<H, T> fromBytes(int emsgId, byte[] data) {
+    return new ProtoMessage<>(emsgId, data);
+  }
+
+  public static <H extends GeneratedMessage, T extends GeneratedMessage>
+      ProtoMessage<H, T> fromBytes(int emsgId, byte[] header, byte[] body) {
     return new ProtoMessage<>(emsgId, ArrayUtils.concat(header, body));
   }
 
   @Override
   public MsgHeaderProto<H> getMsgHeader() {
-    return MsgHeaderProto.of(getData());
+    return MsgHeaderProto.fromBytes(getData());
   }
 
   @Override

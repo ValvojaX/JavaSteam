@@ -36,15 +36,15 @@ public class GCMsgHeaderProto<T extends GeneratedMessage> extends BaseMsgHeader 
     return new GCMsgHeaderProto<>(emsg, proto.getSerializedSize(), proto);
   }
 
-  public static <T extends GeneratedMessage> GCMsgHeaderProto<T> of(int emsg, byte[] data) {
+  public static <T extends GeneratedMessage> GCMsgHeaderProto<T> fromBytes(int emsg, byte[] data) {
     int headerLength = Serializer.unpack(data, ByteBuffer::getInt, ByteOrder.LITTLE_ENDIAN, 4);
     GCMsgHeaderProto<T> gcMsgHeader = new GCMsgHeaderProto<>(emsg, headerLength);
     gcMsgHeader.load(data);
     return gcMsgHeader;
   }
 
-  public static <T extends GeneratedMessage> GCMsgHeaderProto<T> of(byte[] data) {
-    return GCMsgHeaderProto.of(0, data);
+  public static <T extends GeneratedMessage> GCMsgHeaderProto<T> fromBytes(byte[] data) {
+    return GCMsgHeaderProto.fromBytes(0, data);
   }
 
   public int getEmsgMasked() {

@@ -33,7 +33,7 @@ public class MsgHeader extends BaseMsgHeader {
     return new MsgHeader(emsg, -1, -1);
   }
 
-  public static MsgHeader of(byte[] data) {
+  public static MsgHeader fromBytes(byte[] data) {
     MsgHeader msgHeader = new MsgHeader();
     msgHeader.load(data);
     return msgHeader;

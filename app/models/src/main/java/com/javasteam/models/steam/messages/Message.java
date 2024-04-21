@@ -17,16 +17,32 @@ import java.util.Optional;
  * @param <T> the type of the message body
  */
 public class Message<T extends BaseStruct> extends BaseMsg<MsgHeader, T> {
+  private MsgHeader header;
+  private T body;
+
   private Message(int emsgId, byte[] data) {
     super(emsgId, data);
+    this.header = getMsgHeader();
+    this.body = getMsgBody().orElse(null);
   }
 
-  public static <T extends BaseStruct> Message<T> of(int emsgId, MsgHeader header, T body) {
-    return new Message<>(emsgId, ArrayUtils.concat(header.serialize(), body.serialize()));
+  private Message(int emsgId, MsgHeader header) {
+    super(emsgId, header.serialize());
+    this.header = header;
+  }
+
+  private Message(int emsgId, MsgHeader header, T body) {
+    super(emsgId, ArrayUtils.concat(header.serialize(), body.serialize()));
+    this.header = header;
+    this.body = body;
   }
 
   public static <T extends BaseStruct> Message<T> of(int emsgId, MsgHeader header) {
-    return new Message<>(emsgId, header.serialize());
+    return new Message<>(emsgId, header);
+  }
+
+  public static <T extends BaseStruct> Message<T> of(int emsgId, MsgHeader header, T body) {
+    return new Message<>(emsgId, header, body);
   }
 
   public static <T extends BaseStruct> Message<T> fromBytes(int emsgId, byte[] data) {
@@ -40,12 +56,16 @@ public class Message<T extends BaseStruct> extends BaseMsg<MsgHeader, T> {
 
   @Override
   public MsgHeader getMsgHeader() {
-    return MsgHeader.fromBytes(getData());
+    return Optional.ofNullable(header).orElse(MsgHeader.fromBytes(getData()));
   }
 
   @Override
   @SuppressWarnings("unchecked")
   public Optional<T> getMsgBody() {
+    if (body != null) {
+      return Optional.of(body);
+    }
+
     return MessageStruct.resolveStruct(getEmsg())
         .map(struct -> (T) struct.getLoader().apply(getBodyBytes()));
   }

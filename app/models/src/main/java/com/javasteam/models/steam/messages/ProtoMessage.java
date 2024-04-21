@@ -19,18 +19,34 @@ import java.util.Optional;
  */
 public class ProtoMessage<H extends GeneratedMessage, T extends GeneratedMessage>
     extends BaseMsg<MsgHeaderProto<H>, T> {
+  private MsgHeaderProto<H> header;
+  private T body;
+
   private ProtoMessage(int emsgId, byte[] data) {
     super(emsgId, data);
+    this.header = getMsgHeader();
+    this.body = getMsgBody().orElse(null);
   }
 
-  public static <H extends GeneratedMessage, T extends GeneratedMessage> ProtoMessage<H, T> of(
-      int emsgId, MsgHeaderProto<H> header, T body) {
-    return new ProtoMessage<>(emsgId, ArrayUtils.concat(header.serialize(), body.toByteArray()));
+  private ProtoMessage(int emsgId, MsgHeaderProto<H> header) {
+    super(emsgId, header.serialize());
+    this.header = header;
+  }
+
+  private ProtoMessage(int emsgId, MsgHeaderProto<H> header, T body) {
+    super(emsgId, ArrayUtils.concat(header.serialize(), body.toByteArray()));
+    this.header = header;
+    this.body = body;
   }
 
   public static <H extends GeneratedMessage, T extends GeneratedMessage> ProtoMessage<H, T> of(
       int emsgId, MsgHeaderProto<H> header) {
-    return new ProtoMessage<>(emsgId, header.serialize());
+    return new ProtoMessage<>(emsgId, header);
+  }
+
+  public static <H extends GeneratedMessage, T extends GeneratedMessage> ProtoMessage<H, T> of(
+      int emsgId, MsgHeaderProto<H> header, T body) {
+    return new ProtoMessage<>(emsgId, header, body);
   }
 
   public static <H extends GeneratedMessage, T extends GeneratedMessage>
@@ -45,12 +61,16 @@ public class ProtoMessage<H extends GeneratedMessage, T extends GeneratedMessage
 
   @Override
   public MsgHeaderProto<H> getMsgHeader() {
-    return MsgHeaderProto.fromBytes(getData());
+    return Optional.ofNullable(header).orElse(MsgHeaderProto.fromBytes(getData()));
   }
 
   @Override
   @SuppressWarnings("unchecked")
   public Optional<T> getMsgBody() {
+    if (this.body != null) {
+      return Optional.of(this.body);
+    }
+
     return ProtoMessageStruct.resolveProto(getEmsg())
         .map(proto -> (T) proto.getLoader().apply(getBodyBytes()));
   }

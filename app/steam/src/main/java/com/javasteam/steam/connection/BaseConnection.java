@@ -26,10 +26,17 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public abstract class BaseConnection implements HasListenerGroup {
   @Setter private byte[] sessionKey;
-  private final ListenerGroup listeners = new ListenerGroup();
+  private final ListenerGroup listeners;
   private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
   public BaseConnection() {
+    this.listeners = new ListenerGroup();
+    this.executor.scheduleWithFixedDelay(
+        this::read, 0, 100, java.util.concurrent.TimeUnit.MILLISECONDS);
+  }
+
+  public BaseConnection(int threads) {
+    this.listeners = new ListenerGroup(threads);
     this.executor.scheduleWithFixedDelay(
         this::read, 0, 100, java.util.concurrent.TimeUnit.MILLISECONDS);
   }

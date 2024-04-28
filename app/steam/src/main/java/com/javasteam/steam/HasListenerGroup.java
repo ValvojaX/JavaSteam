@@ -3,6 +3,7 @@ package com.javasteam.steam;
 import com.javasteam.models.AbstractMessage;
 import com.javasteam.models.Header;
 import com.javasteam.steam.connection.ListenerGroup;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 
 /**
@@ -20,6 +21,10 @@ public interface HasListenerGroup {
     return null;
   }
 
+  default ListenerGroup.ListenerGroupItem addMessageListener(ListenerGroup.ListenerGroupItem item) {
+    return getListenerGroup().addMessageListener(item);
+  }
+
   default <H extends Header, T> void addMessageListener(
       int emsg, Consumer<AbstractMessage<H, T>> listener) {
     getListenerGroup().addMessageListener(emsg, listener);
@@ -30,8 +35,17 @@ public interface HasListenerGroup {
     getListenerGroup().waitForMessage(emsg, listener);
   }
 
+  default <H extends Header, T> void waitForMessage(
+      int emsg, Consumer<AbstractMessage<H, T>> listener, long timeoutMs) throws TimeoutException {
+    getListenerGroup().waitForMessage(emsg, listener, timeoutMs);
+  }
+
   default void waitForMessage(int emsg) {
     getListenerGroup().waitForMessage(emsg);
+  }
+
+  default void waitForMessage(int emsg, long timeoutMs) throws TimeoutException {
+    getListenerGroup().waitForMessage(emsg, timeoutMs);
   }
 
   default <H extends Header> void notifyMessageListeners(AbstractMessage<H, Object> message) {

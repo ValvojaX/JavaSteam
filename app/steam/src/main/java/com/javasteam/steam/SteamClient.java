@@ -52,6 +52,13 @@ public class SteamClient extends SteamCMClient {
     this.executor = Executors.newSingleThreadScheduledExecutor();
   }
 
+  public SteamClient(SteamWebDirectoryRESTAPIClient webDirectoryClient, int threads) {
+    super(webDirectoryClient, threads);
+    this.addMessageListeners();
+    this.sessionContext = new SteamSessionContext();
+    this.executor = Executors.newSingleThreadScheduledExecutor();
+  }
+
   private void addMessageListeners() {
     this.addMessageListener(EMsg.k_EMsgClientLogOnResponse_VALUE, this::onClientLogonResponse);
     this.addMessageListener(EMsg.k_EMsgClientPersonaState_VALUE, this::onClientPersonaState);

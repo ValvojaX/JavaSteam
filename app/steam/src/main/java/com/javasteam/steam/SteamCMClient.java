@@ -42,6 +42,12 @@ public class SteamCMClient implements HasListenerGroup {
     this.initializeListeners();
   }
 
+  public SteamCMClient(SteamWebDirectoryRESTAPIClient webDirectoryClient, int threads) {
+    this.cmList = webDirectoryClient.getCMList(0).getResponse().getServerlist();
+    this.socket = new TCPConnection(threads);
+    this.initializeListeners();
+  }
+
   public <H extends Header, T> void write(AbstractMessage<H, T> msg) {
     this.socket.write(msg);
   }
@@ -116,10 +122,6 @@ public class SteamCMClient implements HasListenerGroup {
     }
   }
 
-  protected boolean isConnected() {
-    return socket.isConnected();
-  }
-
   protected void connect() {
     if (socket.isConnected()) {
       log.debug("Tried to connect to Steam CM server while already connected");
@@ -139,6 +141,10 @@ public class SteamCMClient implements HasListenerGroup {
     }
 
     waitForMessage(EMsg.k_EMsgChannelEncryptResult_VALUE);
+  }
+
+  public boolean isConnected() {
+    return socket.isConnected();
   }
 
   public void disconnect() {

@@ -22,6 +22,10 @@ public class TCPConnection extends BaseConnection {
     super();
   }
 
+  public TCPConnection(int threads) {
+    super(threads);
+  }
+
   public void connect(String host, int port) {
     connect(host, port, DEFAULT_SOCKET_TIMEOUT);
   }

@@ -3,10 +3,13 @@ package com.javasteam.steam.connection;
 import com.javasteam.models.AbstractMessage;
 import com.javasteam.models.Header;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.*;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+import lombok.Builder;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -15,59 +18,126 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class ListenerGroup {
-  private final Map<Integer, List<Consumer<AbstractMessage<? extends Header, Object>>>>
-      messageListeners;
-  private final Map<Integer, List<Consumer<AbstractMessage<? extends Header, Object>>>>
-      messageFutures;
-  private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(10);
+  private static final int DEFAULT_THREADS = 10;
+  private final List<ListenerGroupItem> items;
+  private final ScheduledExecutorService executor;
+  private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
   public ListenerGroup() {
-    this.messageListeners = new HashMap<>();
-    this.messageFutures = new HashMap<>();
+    this.executor = Executors.newScheduledThreadPool(DEFAULT_THREADS);
+    this.items = new ArrayList<>();
+  }
+
+  public ListenerGroup(int threads) {
+    this.executor = Executors.newScheduledThreadPool(threads);
+    this.items = new ArrayList<>();
   }
 
   public void onMessage(int emsg, AbstractMessage<? extends Header, Object> msg) {
-    messageListeners
-        .getOrDefault(emsg, List.of())
-        .forEach(listener -> executor.execute(() -> listener.accept(msg)));
-    var futureIterator = messageFutures.getOrDefault(emsg, List.of()).listIterator();
+    getItems(item -> item.getEmsg() == emsg)
+        .forEach(
+            item ->
+                item.getConsumer()
+                    .ifPresent(
+                        consumer -> executor.execute(() -> exceptionGuard(consumer).accept(msg))));
 
-    while (futureIterator.hasNext()) {
-      var listener = futureIterator.next();
-      executor.execute(() -> listener.accept(msg));
-      futureIterator.remove();
-    }
+    getItems(item -> item.getEmsg() == emsg && item.isFuture())
+        .forEach(
+            item ->
+                item.getConsumer()
+                    .ifPresent(
+                        consumer -> {
+                          executor.execute(() -> exceptionGuard(consumer).accept(msg));
+                          item.getFuture().complete(null);
+                        }));
+  }
+
+  public ListenerGroupItem addMessageListener(ListenerGroupItem item) {
+    withWriteLock(() -> items.add(item));
+    return item;
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
-  public <H extends Header, T> void addMessageListener(
+  public <H extends Header, T> ListenerGroupItem addMessageListener(
       int emsg, Consumer<AbstractMessage<H, T>> listener) {
-    messageListeners
-        .computeIfAbsent(emsg, k -> new ArrayList<>())
-        .add((Consumer) exceptionGuard(listener));
+    var item = ListenerGroupItem.builder().setEmsg(emsg).setConsumer((Consumer) listener).build();
+    addMessageListener(item);
+    return item;
   }
 
-  @SuppressWarnings({"unchecked"})
+  @SuppressWarnings({"unchecked", "rawtypes"})
   public <H extends Header, T> void waitForMessage(
       int emsg, Consumer<AbstractMessage<H, T>> listener) {
-    CompletableFuture<Void> future = new CompletableFuture<>();
-    messageFutures
-        .computeIfAbsent(emsg, k -> new ArrayList<>())
-        .add(
-            msg -> {
-              exceptionGuard(listener).accept((AbstractMessage<H, T>) msg);
-              future.complete(null);
-            });
+    var future = new CompletableFuture<Void>();
+    addMessageListener(
+        ListenerGroupItem.builder()
+            .setEmsg(emsg)
+            .setConsumer((Consumer) listener)
+            .setFuture(future)
+            .build());
 
     future.join();
+  }
+
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  public <H extends Header, T> void waitForMessage(
+      int emsg, Consumer<AbstractMessage<H, T>> listener, long timeoutMs) throws TimeoutException {
+    var future = new CompletableFuture<Void>();
+    var item =
+        addMessageListener(
+            ListenerGroupItem.builder()
+                .setEmsg(emsg)
+                .setConsumer((Consumer) listener)
+                .setFuture(future)
+                .setTimeout(timeoutMs)
+                .build());
+
+    try {
+      future.get(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+    } catch (InterruptedException | ExecutionException exception) {
+      log.error("Error waiting for message", exception);
+    } catch (TimeoutException exception) {
+      removeItem(item);
+      log.warn("Timeout waiting for message {}", emsg);
+      throw exception;
+    }
   }
 
   public void waitForMessage(int emsg) {
     waitForMessage(emsg, msg -> {});
   }
 
+  public void waitForMessage(int emsg, long timeoutMs) throws TimeoutException {
+    waitForMessage(emsg, msg -> {}, timeoutMs);
+  }
+
   public <H extends Header> void notifyMessageListeners(AbstractMessage<H, Object> message) {
     onMessage(message.getEmsg(), message);
+  }
+
+  private List<ListenerGroupItem> getItems(Predicate<ListenerGroupItem> predicate) {
+    return withReadLock(() -> items.stream().filter(predicate).toList());
+  }
+
+  private void removeItem(ListenerGroupItem item) {
+    withWriteLock(() -> items.remove(item));
+  }
+
+  @Getter
+  @Builder(setterPrefix = "set")
+  public static class ListenerGroupItem {
+    private int emsg;
+    private Consumer<AbstractMessage<? extends Header, Object>> consumer;
+    private CompletableFuture<Void> future;
+    private Long timeout;
+
+    public Optional<Consumer<AbstractMessage<? extends Header, Object>>> getConsumer() {
+      return Optional.ofNullable(consumer);
+    }
+
+    public boolean isFuture() {
+      return future != null;
+    }
   }
 
   private <T> Consumer<T> exceptionGuard(Consumer<T> consumer) {
@@ -78,5 +148,23 @@ public class ListenerGroup {
         log.error("Error in listener", e);
       }
     };
+  }
+
+  private <T> T withReadLock(Supplier<T> supplier) {
+    lock.readLock().lock();
+    try {
+      return supplier.get();
+    } finally {
+      lock.readLock().unlock();
+    }
+  }
+
+  private void withWriteLock(Runnable runnable) {
+    lock.writeLock().lock();
+    try {
+      runnable.run();
+    } finally {
+      lock.writeLock().unlock();
+    }
   }
 }

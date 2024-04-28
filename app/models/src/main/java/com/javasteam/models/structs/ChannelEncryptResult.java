@@ -1,6 +1,6 @@
-package com.javasteam.models.steam.structs;
+package com.javasteam.models.structs;
 
-import com.javasteam.models.steam.BaseStruct;
+import com.javasteam.models.BaseStruct;
 import com.javasteam.utils.serializer.Serializer;
 import java.nio.ByteOrder;
 import lombok.AccessLevel;

@@ -1,9 +1,10 @@
 package com.javasteam.steam.connection;
 
-import com.javasteam.models.steam.BaseMsg;
-import com.javasteam.models.steam.BaseMsgHeader;
-import com.javasteam.models.steam.messages.Message;
-import com.javasteam.models.steam.messages.ProtoMessage;
+import com.javasteam.models.AbstractMessage;
+import com.javasteam.models.Header;
+import com.javasteam.models.messages.Message;
+import com.javasteam.models.messages.ProtoMessage;
+import com.javasteam.steam.HasListenerGroup;
 import com.javasteam.steam.SteamProtocol;
 import com.javasteam.steam.crypto.Crypto;
 import com.javasteam.utils.common.ArrayUtils;
@@ -14,7 +15,6 @@ import java.nio.ByteOrder;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Consumer;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -24,7 +24,7 @@ import lombok.extern.slf4j.Slf4j;
  * handling incoming messages.
  */
 @Slf4j
-public abstract class BaseConnection {
+public abstract class BaseConnection implements HasListenerGroup {
   @Setter private byte[] sessionKey;
   private final ListenerGroup listeners = new ListenerGroup();
   private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
@@ -32,19 +32,6 @@ public abstract class BaseConnection {
   public BaseConnection() {
     this.executor.scheduleWithFixedDelay(
         this::read, 0, 100, java.util.concurrent.TimeUnit.MILLISECONDS);
-  }
-
-  public <H extends BaseMsgHeader, T> void addMessageListener(
-      int emsg, Consumer<BaseMsg<H, T>> listener) {
-    listeners.addMessageListener(emsg, listener);
-  }
-
-  public void waitForMessage(int emsg) {
-    listeners.waitForMessage(emsg);
-  }
-
-  public <H extends BaseMsgHeader> void notifyMessageListeners(BaseMsg<H, Object> message) {
-    listeners.notifyMessageListeners(message);
   }
 
   private void read() {
@@ -98,7 +85,7 @@ public abstract class BaseConnection {
     this.onRawMessage(message);
   }
 
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({"unchecked", "rawtypes"})
   public void onRawMessage(byte[] message) {
     int EMsgId = Serializer.unpack(message, ByteBuffer::getInt, ByteOrder.LITTLE_ENDIAN);
     int EMsg = ProtoUtils.clearProtoMask(EMsgId);
@@ -108,15 +95,15 @@ public abstract class BaseConnection {
         ProtoUtils.resolveEMsg(EMsg).map(Enum::name).orElse("Unknown"),
         message.length);
 
-    BaseMsg<? extends BaseMsgHeader, Object> msg =
+    AbstractMessage<? extends Header, Object> msg =
         ProtoUtils.isProto(EMsgId)
-            ? (BaseMsg) ProtoMessage.fromBytes(EMsg, message)
-            : (BaseMsg) Message.fromBytes(EMsg, message);
+            ? (AbstractMessage) ProtoMessage.fromBytes(EMsg, message)
+            : (AbstractMessage) Message.fromBytes(EMsg, message);
 
     listeners.onMessage(EMsg, msg);
   }
 
-  public <H extends BaseMsgHeader, T> void write(BaseMsg<H, T> msg) {
+  public <H extends Header, T> void write(AbstractMessage<H, T> msg) {
     byte[] data = msg.serialize();
     if (this.sessionKey != null) {
       data =
@@ -142,4 +129,9 @@ public abstract class BaseConnection {
   protected abstract Optional<byte[]> readData(int length);
 
   protected abstract void writeData(byte[] data);
+
+  @Override
+  public ListenerGroup getListenerGroup() {
+    return listeners;
+  }
 }

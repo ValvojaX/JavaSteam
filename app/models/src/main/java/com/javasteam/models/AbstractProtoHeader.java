@@ -1,11 +1,8 @@
-package com.javasteam.models.steam.headers;
+package com.javasteam.models;
 
 import com.google.protobuf.GeneratedMessage;
-import com.javasteam.models.steam.BaseMsgHeader;
-import com.javasteam.protobufs.GameCoordinatorMessages;
 import com.javasteam.utils.proto.ProtoUtils;
 import com.javasteam.utils.serializer.Serializer;
-import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -13,38 +10,25 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * GCMsgHeaderProto is a class that represents the header of a protobuf message that is sent by the
- * game coordinator.
+ * Represents a header in the Steam protocol that contains a protobuf message. The header contains
+ * information about the message, such as the message type and the size of the message.
+ *
+ * @param <T> The type of the protobuf message
  */
 @Getter
 @Setter(value = AccessLevel.PROTECTED)
 @AllArgsConstructor
-public class GCMsgHeaderProto<T extends GeneratedMessage> extends BaseMsgHeader {
+public abstract class AbstractProtoHeader<T extends GeneratedMessage> implements ProtoHeader {
   public static final int size = 8;
   private int emsg;
   private int protoLength;
   private T proto;
 
-  public GCMsgHeaderProto(int emsg, int protoLength) {
+  public AbstractProtoHeader(int emsg, T proto) {
     super();
     this.emsg = emsg;
-    this.protoLength = protoLength;
-    this.proto = getDefaultProto();
-  }
-
-  public static <T extends GeneratedMessage> GCMsgHeaderProto<T> of(int emsg, T proto) {
-    return new GCMsgHeaderProto<>(emsg, proto.getSerializedSize(), proto);
-  }
-
-  public static <T extends GeneratedMessage> GCMsgHeaderProto<T> fromBytes(int emsg, byte[] data) {
-    int headerLength = Serializer.unpack(data, ByteBuffer::getInt, ByteOrder.LITTLE_ENDIAN, 4);
-    GCMsgHeaderProto<T> gcMsgHeader = new GCMsgHeaderProto<>(emsg, headerLength);
-    gcMsgHeader.load(data);
-    return gcMsgHeader;
-  }
-
-  public static <T extends GeneratedMessage> GCMsgHeaderProto<T> fromBytes(byte[] data) {
-    return GCMsgHeaderProto.fromBytes(0, data);
+    this.proto = proto;
+    this.protoLength = proto.getSerializedSize();
   }
 
   public int getEmsgMasked() {
@@ -53,6 +37,10 @@ public class GCMsgHeaderProto<T extends GeneratedMessage> extends BaseMsgHeader 
 
   public void setEmsgMasked(int emsg) {
     this.emsg = ProtoUtils.clearProtoMask(emsg);
+  }
+
+  public int getProtoLength() {
+    return proto.getSerializedSize();
   }
 
   public byte[] getProtoBytes() {
@@ -68,17 +56,12 @@ public class GCMsgHeaderProto<T extends GeneratedMessage> extends BaseMsgHeader 
     }
   }
 
-  @SuppressWarnings("unchecked")
-  public static <T extends GeneratedMessage> T getDefaultProto() {
-    return (T) GameCoordinatorMessages.CMsgProtoBufHeader.getDefaultInstance();
-  }
-
   @Override
   public Serializer getSerializer() {
     return Serializer.builder(ByteOrder.LITTLE_ENDIAN)
         .addIntegerField(4, this::getEmsgMasked, this::setEmsgMasked)
         .addIntegerField(4, this::getProtoLength, this::setProtoLength)
-        .addByteArrayField(getProtoLength(), this::getProtoBytes, this::setProtoBytes)
+        .addByteArrayField(proto.getSerializedSize(), this::getProtoBytes, this::setProtoBytes)
         .build();
   }
 

@@ -1,6 +1,6 @@
-package com.javasteam.models.steam.headers;
+package com.javasteam.models.headers;
 
-import com.javasteam.models.steam.BaseMsgHeader;
+import com.javasteam.models.ProtoHeader;
 import com.javasteam.utils.serializer.Serializer;
 import java.nio.ByteOrder;
 import lombok.AccessLevel;
@@ -9,28 +9,29 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * GCMsgHeader is a class that represents the header of a message received by the game coordinator.
+ * Represents a header in the Steam protocol used by the Game Coordinator (GC). The header contains
+ * information about the message, such as the message type and the size of the message.
  */
 @Getter
 @Setter(value = AccessLevel.PROTECTED)
 @AllArgsConstructor
-public class GCMsgHeader extends BaseMsgHeader {
+public class GCMessageHeader implements ProtoHeader {
   public static final int size = 18;
   private short headerVersion;
   private long targetJobId;
   private long sourceJobId;
 
-  public GCMsgHeader() {
+  public GCMessageHeader() {
     super();
     this.headerVersion = 1;
     this.targetJobId = -1;
     this.sourceJobId = -1;
   }
 
-  public static GCMsgHeader fromBytes(byte[] data) {
-    GCMsgHeader gcMsgHeader = new GCMsgHeader();
-    gcMsgHeader.load(data);
-    return gcMsgHeader;
+  public static GCMessageHeader fromBytes(byte[] data) {
+    GCMessageHeader gcMessageHeader = new GCMessageHeader();
+    gcMessageHeader.load(data);
+    return gcMessageHeader;
   }
 
   @Override

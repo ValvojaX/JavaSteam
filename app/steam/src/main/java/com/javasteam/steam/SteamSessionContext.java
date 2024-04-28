@@ -19,4 +19,8 @@ public class SteamSessionContext {
   public Optional<SteamId> getSteamIdOptional() {
     return Optional.ofNullable(steamId);
   }
+
+  public Optional<Integer> getSessionIdOptional() {
+    return Optional.ofNullable(sessionId);
+  }
 }

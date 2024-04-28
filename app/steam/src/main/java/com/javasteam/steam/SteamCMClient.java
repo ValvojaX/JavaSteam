@@ -2,16 +2,15 @@ package com.javasteam.steam;
 
 import static com.javasteam.protobufs.EnumsClientserver.EMsg;
 import static com.javasteam.protobufs.SteammessagesBase.CMsgMulti;
-import static com.javasteam.protobufs.SteammessagesBase.CMsgProtoBufHeader;
 
-import com.javasteam.models.steam.BaseMsg;
-import com.javasteam.models.steam.BaseMsgHeader;
-import com.javasteam.models.steam.headers.MsgHeader;
-import com.javasteam.models.steam.headers.MsgHeaderProto;
-import com.javasteam.models.steam.messages.Message;
-import com.javasteam.models.steam.structs.ChannelEncryptRequest;
-import com.javasteam.models.steam.structs.ChannelEncryptResponse;
-import com.javasteam.models.steam.structs.ChannelEncryptResult;
+import com.javasteam.models.AbstractMessage;
+import com.javasteam.models.Header;
+import com.javasteam.models.ProtoHeader;
+import com.javasteam.models.headers.MessageHeader;
+import com.javasteam.models.messages.Message;
+import com.javasteam.models.structs.ChannelEncryptRequest;
+import com.javasteam.models.structs.ChannelEncryptResponse;
+import com.javasteam.models.structs.ChannelEncryptResult;
 import com.javasteam.steam.common.EResult;
 import com.javasteam.steam.connection.TCPConnection;
 import com.javasteam.steam.crypto.Crypto;
@@ -24,7 +23,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -33,7 +31,7 @@ import lombok.extern.slf4j.Slf4j;
  * server. Uses the {@link TCPConnection} class to handle the TCP connection.
  */
 @Slf4j
-public class SteamCMClient {
+public class SteamCMClient implements HasListenerGroup {
   private final List<SteamCMServer> cmList;
   private final TCPConnection socket;
   private byte[] sessionKey;
@@ -44,20 +42,7 @@ public class SteamCMClient {
     this.initializeListeners();
   }
 
-  public <H extends BaseMsgHeader, T> void addMessageListener(
-      int emsg, Consumer<BaseMsg<H, T>> listener) {
-    this.socket.addMessageListener(emsg, listener);
-  }
-
-  public <H extends BaseMsgHeader> void notifyMessageListeners(BaseMsg<H, Object> message) {
-    this.socket.notifyMessageListeners(message);
-  }
-
-  public void waitForMessage(int emsg) {
-    this.socket.waitForMessage(emsg);
-  }
-
-  public <H extends BaseMsgHeader, T> void write(BaseMsg<H, T> msg) {
+  public <H extends Header, T> void write(AbstractMessage<H, T> msg) {
     this.socket.write(msg);
   }
 
@@ -67,7 +52,7 @@ public class SteamCMClient {
     this.addMessageListener(EMsg.k_EMsgMulti_VALUE, this::onMulti);
   }
 
-  private void onChannelEncryptRequest(BaseMsg<MsgHeader, ChannelEncryptRequest> msg) {
+  private void onChannelEncryptRequest(AbstractMessage<MessageHeader, ChannelEncryptRequest> msg) {
     log.info("Received channel encrypt request:\n{}", msg);
 
     ChannelEncryptRequest request =
@@ -84,14 +69,14 @@ public class SteamCMClient {
     Message<ChannelEncryptResponse> response =
         Message.of(
             EMsg.k_EMsgChannelEncryptResponse_VALUE,
-            MsgHeader.of(EMsg.k_EMsgChannelEncryptResponse_VALUE),
+            MessageHeader.of(EMsg.k_EMsgChannelEncryptResponse_VALUE),
             res);
     log.debug("Sending channel encrypt response");
 
     this.write(response);
   }
 
-  private void onChannelEncryptResult(BaseMsg<MsgHeader, ChannelEncryptResult> msg) {
+  private void onChannelEncryptResult(AbstractMessage<MessageHeader, ChannelEncryptResult> msg) {
     log.info("Received channel encrypt result:\n{}", msg);
 
     ChannelEncryptResult result =
@@ -107,7 +92,7 @@ public class SteamCMClient {
     }
   }
 
-  private void onMulti(BaseMsg<MsgHeaderProto<CMsgProtoBufHeader>, CMsgMulti> msg) {
+  private void onMulti(AbstractMessage<ProtoHeader, CMsgMulti> msg) {
     log.info("Received multi message:\n{}", msg);
 
     CMsgMulti multi =
@@ -131,7 +116,11 @@ public class SteamCMClient {
     }
   }
 
-  public void connect() {
+  protected boolean isConnected() {
+    return socket.isConnected();
+  }
+
+  protected void connect() {
     if (socket.isConnected()) {
       log.debug("Tried to connect to Steam CM server while already connected");
       return;
@@ -154,5 +143,10 @@ public class SteamCMClient {
 
   public void disconnect() {
     socket.disconnect();
+  }
+
+  @Override
+  public HasListenerGroup getInstance() {
+    return this.socket;
   }
 }

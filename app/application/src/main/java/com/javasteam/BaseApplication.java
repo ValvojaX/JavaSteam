@@ -18,7 +18,6 @@ public class BaseApplication {
 
     log.info("Application started");
     SteamClient steamClient = new SteamClient(webDirectoryClient);
-    steamClient.connect();
     steamClient.login(dotenv.get("STEAM_USERNAME"), dotenv.get("STEAM_PASSWORD"));
 
     steamClient.addMessageListener(

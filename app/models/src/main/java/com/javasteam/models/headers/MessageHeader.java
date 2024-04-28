@@ -1,6 +1,6 @@
-package com.javasteam.models.steam.headers;
+package com.javasteam.models.headers;
 
-import com.javasteam.models.steam.BaseMsgHeader;
+import com.javasteam.models.Header;
 import com.javasteam.utils.serializer.Serializer;
 import java.nio.ByteOrder;
 import lombok.AccessLevel;
@@ -9,34 +9,33 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * MsgHeader is a class that represents the header of a message that is sent or received from the
- * Steam network. All incoming and outgoing messages that are not protobufs have a header that is
- * represented by this class.
+ * Represents a basic header in the Steam protocol. The header contains information about the
+ * message, such as the message type and the size of the message.
  */
 @Getter
 @Setter(value = AccessLevel.PROTECTED)
 @AllArgsConstructor
-public class MsgHeader extends BaseMsgHeader {
+public class MessageHeader implements Header {
   public static final int size = 20;
   private int emsg;
   private long targetJobId;
   private long sourceJobId;
 
-  public MsgHeader() {
+  public MessageHeader() {
     super();
     this.emsg = 0;
     this.targetJobId = -1;
     this.sourceJobId = -1;
   }
 
-  public static MsgHeader of(int emsg) {
-    return new MsgHeader(emsg, -1, -1);
+  public static MessageHeader of(int emsg) {
+    return new MessageHeader(emsg, -1, -1);
   }
 
-  public static MsgHeader fromBytes(byte[] data) {
-    MsgHeader msgHeader = new MsgHeader();
-    msgHeader.load(data);
-    return msgHeader;
+  public static MessageHeader fromBytes(byte[] data) {
+    MessageHeader messageHeader = new MessageHeader();
+    messageHeader.load(data);
+    return messageHeader;
   }
 
   @Override

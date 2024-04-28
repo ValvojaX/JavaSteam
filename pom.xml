@@ -15,6 +15,7 @@
         <module>app/utils</module>
         <module>app/models</module>
         <module>app/protobufs</module>
+        <module>app/common</module>
     </modules>
 
     <properties>

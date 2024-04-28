@@ -8,10 +8,11 @@ import static com.javasteam.protobufs.SteammessagesClientserverFriends.CMsgClien
 import static com.javasteam.protobufs.SteammessagesClientserverLogin.CMsgClientLogon;
 import static com.javasteam.protobufs.SteammessagesClientserverLogin.CMsgClientLogonResponse;
 
-import com.javasteam.models.steam.BaseMsg;
-import com.javasteam.models.steam.BaseMsgHeader;
-import com.javasteam.models.steam.headers.MsgHeaderProto;
-import com.javasteam.models.steam.messages.ProtoMessage;
+import com.google.protobuf.GeneratedMessage;
+import com.javasteam.models.AbstractMessage;
+import com.javasteam.models.HasSessionContext;
+import com.javasteam.models.headers.ProtoMessageHeader;
+import com.javasteam.models.messages.ProtoMessage;
 import com.javasteam.steam.common.EPersonaState;
 import com.javasteam.steam.common.EResult;
 import com.javasteam.steam.steamid.SteamId;
@@ -21,7 +22,6 @@ import com.javasteam.webapi.endpoints.steamdirectory.SteamWebDirectoryRESTAPICli
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -42,7 +42,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class SteamClient extends SteamCMClient {
-  @Getter private final SteamSessionContext sessionContext;
+  private SteamSessionContext sessionContext;
   private final ScheduledExecutorService executor;
 
   public SteamClient(SteamWebDirectoryRESTAPIClient webDirectoryClient) {
@@ -58,12 +58,12 @@ public class SteamClient extends SteamCMClient {
   }
 
   private void onClientPersonaState(
-      BaseMsg<MsgHeaderProto<CMsgProtoBufHeader>, CMsgClientPersonaState> msg) {
+      AbstractMessage<ProtoMessageHeader, CMsgClientPersonaState> msg) {
     log.info("Received client persona state:\n{}", msg);
   }
 
   public void onClientLogonResponse(
-      BaseMsg<MsgHeaderProto<CMsgProtoBufHeader>, CMsgClientLogonResponse> msg) {
+      AbstractMessage<ProtoMessageHeader, CMsgClientLogonResponse> msg) {
     log.info("Received client logon response:\n{}", msg);
 
     CMsgClientLogonResponse response =
@@ -88,25 +88,25 @@ public class SteamClient extends SteamCMClient {
 
   private void sendHeartbeat() {
     log.debug("Sending client heartbeat");
-    SteamId steamId =
-        this.sessionContext
-            .getSteamIdOptional()
-            .orElseThrow(() -> new RuntimeException("Steam ID is not set"));
 
     CMsgClientLogonResponse response = CMsgClientLogonResponse.newBuilder().build();
 
-    CMsgProtoBufHeader header =
-        CMsgProtoBufHeader.newBuilder().setSteamid(steamId.toSteamId64()).build();
+    CMsgProtoBufHeader header = CMsgProtoBufHeader.newBuilder().build();
 
-    ProtoMessage<CMsgProtoBufHeader, CMsgClientLogonResponse> message =
+    ProtoMessage<CMsgClientLogonResponse> message =
         ProtoMessage.of(
             EMsg.k_EMsgClientHeartBeat_VALUE,
-            MsgHeaderProto.of(EMsg.k_EMsgClientHeartBeat_VALUE, header),
+            ProtoMessageHeader.of(EMsg.k_EMsgClientHeartBeat_VALUE, header),
             response);
     this.write(message);
   }
 
   public void loginAnonymous() {
+    if (this.isConnected()) {
+      throw new RuntimeException("Client is already connected");
+    }
+
+    this.connect();
     SteamId steamId = SteamId.of(Universe.PUBLIC, Type.ANON_USER);
     this.sessionContext.setSteamId(steamId);
     log.info("Logging in anonymously with Steam ID: {}", steamId);
@@ -120,17 +120,23 @@ public class SteamClient extends SteamCMClient {
     CMsgProtoBufHeader headerProto =
         CMsgProtoBufHeader.newBuilder().setSteamid(steamId.toSteamId64()).build();
 
-    ProtoMessage<CMsgProtoBufHeader, CMsgClientLogon> message =
+    ProtoMessage<CMsgClientLogon> message =
         ProtoMessage.of(
             EMsg.k_EMsgClientLogon_VALUE,
-            MsgHeaderProto.of(EMsg.k_EMsgClientLogon_VALUE, headerProto),
+            ProtoMessageHeader.of(EMsg.k_EMsgClientLogon_VALUE, headerProto),
             logonMessage);
 
     log.info("Sending client logon message:\n{}", message);
     this.write(message);
+    this.waitForMessage(EMsg.k_EMsgClientLogOnResponse_VALUE);
   }
 
   public void login(String username, String password) {
+    if (this.isConnected()) {
+      throw new RuntimeException("Client is already connected");
+    }
+
+    this.connect();
     SteamId steamId = SteamId.of(Universe.PUBLIC, Type.INDIVIDUAL);
     this.sessionContext.setSteamId(steamId);
 
@@ -147,29 +153,26 @@ public class SteamClient extends SteamCMClient {
     CMsgProtoBufHeader headerProto =
         CMsgProtoBufHeader.newBuilder().setSteamid(steamId.toSteamId64()).build();
 
-    ProtoMessage<CMsgProtoBufHeader, CMsgClientLogon> message =
+    ProtoMessage<CMsgClientLogon> message =
         ProtoMessage.of(
             EMsg.k_EMsgClientLogon_VALUE,
-            MsgHeaderProto.of(EMsg.k_EMsgClientLogon_VALUE, headerProto),
+            ProtoMessageHeader.of(EMsg.k_EMsgClientLogon_VALUE, headerProto),
             logonMessage);
 
     log.info("Sending client logon message:\n{}", message);
     this.write(message);
+    this.waitForMessage(EMsg.k_EMsgClientLogOnResponse_VALUE);
   }
 
   public void setState(EPersonaState state) {
     var proto = CMsgClientChangeStatus.newBuilder().setPersonaState(state.getCode()).build();
 
-    var header =
-        CMsgProtoBufHeader.newBuilder(CMsgProtoBufHeader.getDefaultInstance())
-            .setSteamid(getSessionContext().getSteamId().toSteamId64())
-            .setClientSessionid(getSessionContext().getSessionId())
-            .build();
+    var header = CMsgProtoBufHeader.newBuilder(CMsgProtoBufHeader.getDefaultInstance()).build();
 
     var message =
         ProtoMessage.of(
             EMsg.k_EMsgClientChangeStatus_VALUE,
-            MsgHeaderProto.of(EMsg.k_EMsgClientChangeStatus_VALUE, header),
+            ProtoMessageHeader.of(EMsg.k_EMsgClientChangeStatus_VALUE, header),
             proto);
 
     log.info("Sending change status message: {}", message);
@@ -187,16 +190,12 @@ public class SteamClient extends SteamCMClient {
                     .toList())
             .build();
 
-    var header =
-        CMsgProtoBufHeader.newBuilder(CMsgProtoBufHeader.getDefaultInstance())
-            .setSteamid(getSessionContext().getSteamId().toSteamId64())
-            .setClientSessionid(getSessionContext().getSessionId())
-            .build();
+    var header = CMsgProtoBufHeader.newBuilder(CMsgProtoBufHeader.getDefaultInstance()).build();
 
     var message =
         ProtoMessage.of(
             EMsg.k_EMsgClientGamesPlayed_VALUE,
-            MsgHeaderProto.of(EMsg.k_EMsgClientGamesPlayed_VALUE, header),
+            ProtoMessageHeader.of(EMsg.k_EMsgClientGamesPlayed_VALUE, header),
             proto);
 
     log.info("Sending games played message: {}", message);
@@ -205,7 +204,23 @@ public class SteamClient extends SteamCMClient {
   }
 
   @Override
-  public <H extends BaseMsgHeader, T> void write(BaseMsg<H, T> msg) {
+  public boolean isConnected() {
+    return super.isConnected() && sessionContext.getSteamIdOptional().isPresent();
+  }
+
+  public <T extends GeneratedMessage> void write(ProtoMessage<T> msg) {
+    if (msg.getMsgHeader() instanceof HasSessionContext header) {
+      sessionContext
+          .getSteamIdOptional()
+          .ifPresent(steamId -> header.setSteamId(steamId.toSteamId64()));
+      sessionContext.getSessionIdOptional().ifPresent(header::setSessionId);
+    }
     super.write(msg);
+  }
+
+  @Override
+  public void disconnect() {
+    super.disconnect();
+    this.sessionContext = new SteamSessionContext();
   }
 }

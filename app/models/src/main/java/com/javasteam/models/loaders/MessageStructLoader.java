@@ -1,10 +1,12 @@
-package com.javasteam.models.steam;
+package com.javasteam.models.loaders;
 
 import static com.javasteam.protobufs.EnumsClientserver.EMsg;
 
-import com.javasteam.models.steam.structs.ChannelEncryptRequest;
-import com.javasteam.models.steam.structs.ChannelEncryptResponse;
-import com.javasteam.models.steam.structs.ChannelEncryptResult;
+import com.javasteam.models.BaseStruct;
+import com.javasteam.models.StructLoader;
+import com.javasteam.models.structs.ChannelEncryptRequest;
+import com.javasteam.models.structs.ChannelEncryptResponse;
+import com.javasteam.models.structs.ChannelEncryptResult;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -12,11 +14,10 @@ import lombok.Getter;
 
 /**
  * MessageStruct is an enum that maps the EMsg value to the corresponding struct class. It is used
- * to resolve the struct class based on the EMsg value. If a message needs to be parsed, it needs to
- * be resolved using this enum.
+ * to resolve the struct class based on the EMsg value.
  */
 @Getter
-public enum MessageStruct implements StructLoader<BaseStruct> {
+public enum MessageStructLoader implements StructLoader<BaseStruct> {
   CHANNEL_ENCRYPT_RESULT(EMsg.k_EMsgChannelEncryptRequest_VALUE, ChannelEncryptRequest.class),
   CHANNEL_ENCRYPT_REQUEST(EMsg.k_EMsgChannelEncryptResponse_VALUE, ChannelEncryptResponse.class),
   CHANNEL_ENCRYPT_RESPONSE(EMsg.k_EMsgChannelEncryptResult_VALUE, ChannelEncryptResult.class);
@@ -25,14 +26,16 @@ public enum MessageStruct implements StructLoader<BaseStruct> {
   private final Class<? extends BaseStruct> clazz;
   private final Function<byte[], BaseStruct> loader;
 
-  <T extends BaseStruct> MessageStruct(int emsg, Class<T> clazz) {
+  <T extends BaseStruct> MessageStructLoader(int emsg, Class<T> clazz) {
     this.emsg = emsg;
     this.clazz = clazz;
     this.loader = this::loadStruct;
   }
 
-  public static Optional<MessageStruct> resolveStruct(int emsg) {
-    return Stream.of(MessageStruct.values()).filter(provider -> provider.emsg == emsg).findFirst();
+  public static Optional<MessageStructLoader> resolveStruct(int emsg) {
+    return Stream.of(MessageStructLoader.values())
+        .filter(provider -> provider.emsg == emsg)
+        .findFirst();
   }
 
   @SuppressWarnings("unchecked")

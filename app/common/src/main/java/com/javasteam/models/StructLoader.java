@@ -1,4 +1,4 @@
-package com.javasteam.models.steam;
+package com.javasteam.models;
 
 import java.util.function.Function;
 
@@ -9,5 +9,9 @@ import java.util.function.Function;
  * @param <T> the type of the struct
  */
 public interface StructLoader<T> {
+  /** Returns the loader function that loads the struct from a byte array. */
   Function<byte[], T> getLoader();
+
+  /** Returns the EMsg value that is mapped to the struct. */
+  int getEmsg();
 }

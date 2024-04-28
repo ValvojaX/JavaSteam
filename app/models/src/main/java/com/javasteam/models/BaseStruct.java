@@ -1,4 +1,4 @@
-package com.javasteam.models.steam;
+package com.javasteam.models;
 
 import com.javasteam.utils.serializer.Serializer;
 

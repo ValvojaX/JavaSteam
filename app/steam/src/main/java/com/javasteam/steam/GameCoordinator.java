@@ -6,11 +6,11 @@ import static com.javasteam.protobufs.SteammessagesClientserver2.CMsgGCClient;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.GeneratedMessage;
-import com.javasteam.models.steam.BaseMsg;
-import com.javasteam.models.steam.headers.GCMsgHeader;
-import com.javasteam.models.steam.headers.GCMsgHeaderProto;
-import com.javasteam.models.steam.headers.MsgHeaderProto;
-import com.javasteam.models.steam.messages.ProtoMessage;
+import com.javasteam.models.AbstractMessage;
+import com.javasteam.models.headers.GCMessageHeader;
+import com.javasteam.models.headers.GCProtoMessageHeader;
+import com.javasteam.models.headers.ProtoMessageHeader;
+import com.javasteam.models.messages.ProtoMessage;
 import com.javasteam.protobufs.GameCoordinatorMessages;
 import com.javasteam.utils.common.ArrayUtils;
 import com.javasteam.utils.proto.ProtoUtils;
@@ -22,7 +22,7 @@ import lombok.extern.slf4j.Slf4j;
  * messages from the GC server.
  */
 @Slf4j
-public class GameCoordinator {
+public class GameCoordinator implements HasListenerGroup {
   private final SteamClient steamClient;
   private final int appId;
 
@@ -36,7 +36,8 @@ public class GameCoordinator {
     steamClient.addMessageListener(EMsg.k_EMsgClientFromGC_VALUE, this::onClientFromGC);
   }
 
-  private void onClientFromGC(BaseMsg<MsgHeaderProto<CMsgProtoBufHeader>, CMsgGCClient> msg) {
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  private void onClientFromGC(AbstractMessage<ProtoMessageHeader, CMsgGCClient> msg) {
     log.info("Received client from GC:\n{}", msg);
 
     CMsgGCClient response =
@@ -49,23 +50,26 @@ public class GameCoordinator {
 
     var header =
         ProtoUtils.isProto(response.getMsgtype())
-            ? GCMsgHeaderProto.fromBytes(response.getMsgtype(), response.getPayload().toByteArray())
-            : GCMsgHeader.fromBytes(response.getPayload().toByteArray());
+            ? GCProtoMessageHeader.fromBytes(response.getPayload().toByteArray())
+            : GCMessageHeader.fromBytes(response.getPayload().toByteArray());
+
+    byte[] payload = response.getPayload().toByteArray();
 
     ProtoMessage message =
         ProtoMessage.fromBytes(
             response.getMsgtype(),
-            header.serialize(),
-            ArrayUtils.subarray(response.getPayload().toByteArray(), header.getSize()));
+            header,
+            ArrayUtils.subarray(payload, header.getSize(), payload.length - header.getSize()));
 
-    log.info("Received message from GC: {}", message);
+    log.info("Received message from GC for app {}:\n{}", response.getAppid(), message);
 
     steamClient.notifyMessageListeners(message);
   }
 
   public <T extends GeneratedMessage> void write(int emsg, T body) {
     var protoHeader =
-        GCMsgHeaderProto.of(emsg, GameCoordinatorMessages.CMsgProtoBufHeader.getDefaultInstance());
+        GCProtoMessageHeader.of(
+            emsg, GameCoordinatorMessages.CMsgProtoBufHeader.getDefaultInstance());
 
     var proto =
         CMsgGCClient.newBuilder(CMsgGCClient.getDefaultInstance())
@@ -78,17 +82,20 @@ public class GameCoordinator {
     var header =
         CMsgProtoBufHeader.newBuilder(CMsgProtoBufHeader.getDefaultInstance())
             .setRoutingAppid(730)
-            .setClientSessionid(steamClient.getSessionContext().getSessionId())
-            .setSteamid(steamClient.getSessionContext().getSteamId().toSteamId64())
             .build();
 
     var message =
         ProtoMessage.of(
             EMsg.k_EMsgClientToGC_VALUE,
-            MsgHeaderProto.of(EMsg.k_EMsgClientToGC_VALUE, header),
+            ProtoMessageHeader.of(EMsg.k_EMsgClientToGC_VALUE, header),
             proto);
 
     log.info("Sending message to GC: {}", message);
     steamClient.write(message);
+  }
+
+  @Override
+  public HasListenerGroup getInstance() {
+    return steamClient;
   }
 }

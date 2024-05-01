@@ -17,8 +17,10 @@ import com.javasteam.steam.crypto.Crypto;
 import com.javasteam.utils.common.ArrayUtils;
 import com.javasteam.utils.common.ZipUtils;
 import com.javasteam.utils.serializer.Serializer;
+import com.javasteam.webapi.RESTAPIClientProvider;
 import com.javasteam.webapi.endpoints.steamdirectory.SteamWebDirectoryRESTAPIClient;
 import com.javasteam.webapi.endpoints.steamdirectory.models.SteamCMServer;
+import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Collections;
@@ -36,14 +38,12 @@ public class SteamCMClient implements HasListenerGroup {
   private final TCPConnection socket;
   private byte[] sessionKey;
 
-  public SteamCMClient(SteamWebDirectoryRESTAPIClient webDirectoryClient) {
-    this.cmList = webDirectoryClient.getCMList(0).getResponse().getServerlist();
-    this.socket = new TCPConnection();
-    this.initializeListeners();
-  }
-
-  public SteamCMClient(SteamWebDirectoryRESTAPIClient webDirectoryClient, int threads) {
-    this.cmList = webDirectoryClient.getCMList(0).getResponse().getServerlist();
+  public SteamCMClient(int threads) {
+    this.cmList =
+        RESTAPIClientProvider.getRESTAPIClient(SteamWebDirectoryRESTAPIClient.class)
+            .getCMList(0)
+            .getResponse()
+            .getServerlist();
     this.socket = new TCPConnection(threads);
     this.initializeListeners();
   }
@@ -145,6 +145,10 @@ public class SteamCMClient implements HasListenerGroup {
 
   public boolean isConnected() {
     return socket.isConnected();
+  }
+
+  public InetAddress getLocalAddress() {
+    return socket.getLocalAddress();
   }
 
   public void disconnect() {

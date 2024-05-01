@@ -1,6 +1,7 @@
 package com.javasteam.steam;
 
 import static com.javasteam.protobufs.EnumsClientserver.EMsg;
+import static com.javasteam.protobufs.SteammessagesBase.CMsgIPAddress;
 import static com.javasteam.protobufs.SteammessagesBase.CMsgProtoBufHeader;
 import static com.javasteam.protobufs.SteammessagesClientserver.CMsgClientGamesPlayed;
 import static com.javasteam.protobufs.SteammessagesClientserverFriends.CMsgClientChangeStatus;
@@ -18,7 +19,9 @@ import com.javasteam.steam.common.EResult;
 import com.javasteam.steam.steamid.SteamId;
 import com.javasteam.steam.steamid.Type;
 import com.javasteam.steam.steamid.Universe;
-import com.javasteam.webapi.endpoints.steamdirectory.SteamWebDirectoryRESTAPIClient;
+import com.javasteam.utils.serializer.Serializer;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -42,21 +45,19 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class SteamClient extends SteamCMClient {
+  private static final int DEFAULT_THREADS = 10;
   private SteamSessionContext sessionContext;
   private final ScheduledExecutorService executor;
 
-  public SteamClient(SteamWebDirectoryRESTAPIClient webDirectoryClient) {
-    super(webDirectoryClient);
+  public SteamClient(int threads) {
+    super(threads);
     this.addMessageListeners();
     this.sessionContext = new SteamSessionContext();
     this.executor = Executors.newSingleThreadScheduledExecutor();
   }
 
-  public SteamClient(SteamWebDirectoryRESTAPIClient webDirectoryClient, int threads) {
-    super(webDirectoryClient, threads);
-    this.addMessageListeners();
-    this.sessionContext = new SteamSessionContext();
-    this.executor = Executors.newSingleThreadScheduledExecutor();
+  public SteamClient() {
+    this(DEFAULT_THREADS);
   }
 
   private void addMessageListeners() {
@@ -138,7 +139,7 @@ public class SteamClient extends SteamCMClient {
     this.waitForMessage(EMsg.k_EMsgClientLogOnResponse_VALUE);
   }
 
-  public void login(String username, String password) {
+  public void login(LoginParameters loginParameters) {
     if (this.isConnected()) {
       throw new RuntimeException("Client is already connected");
     }
@@ -147,15 +148,22 @@ public class SteamClient extends SteamCMClient {
     SteamId steamId = SteamId.of(Universe.PUBLIC, Type.INDIVIDUAL);
     this.sessionContext.setSteamId(steamId);
 
-    log.info("Logging in with username: {} and Steam ID: {}", username, steamId);
+    int ipv4Address =
+        Serializer.unpack(getLocalAddress().getAddress(), ByteBuffer::getInt, ByteOrder.BIG_ENDIAN);
+    int obfuscatedAddress = ipv4Address ^ SteamProtocol.ADDRESS_MASK;
 
-    CMsgClientLogon logonMessage =
-        CMsgClientLogon.newBuilder()
-            .setClientPackageVersion(SteamProtocol.DEFAULT_CLIENT_PACKAGE_VERSION)
-            .setProtocolVersion(SteamProtocol.DEFAULT_PROTOCOL_VERSION)
-            .setAccountName(username)
-            .setPassword(password)
+    var logonMessage =
+        loginParameters
+            .apply(
+                CMsgClientLogon.newBuilder()
+                    .setClientPackageVersion(SteamProtocol.DEFAULT_CLIENT_PACKAGE_VERSION)
+                    .setProtocolVersion(SteamProtocol.DEFAULT_PROTOCOL_VERSION)
+                    .setObfuscatedPrivateIp(
+                        CMsgIPAddress.newBuilder().setV4(obfuscatedAddress).build()))
             .build();
+
+    log.info(
+        "Logging in with username: {} and Steam ID: {}", logonMessage.getAccountName(), steamId);
 
     CMsgProtoBufHeader headerProto =
         CMsgProtoBufHeader.newBuilder().setSteamid(steamId.toSteamId64()).build();

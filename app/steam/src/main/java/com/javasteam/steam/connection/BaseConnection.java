@@ -10,6 +10,7 @@ import com.javasteam.steam.crypto.Crypto;
 import com.javasteam.utils.common.ArrayUtils;
 import com.javasteam.utils.proto.ProtoUtils;
 import com.javasteam.utils.serializer.Serializer;
+import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.*;
@@ -132,6 +133,8 @@ public abstract class BaseConnection implements HasListenerGroup {
   public abstract void disconnect();
 
   public abstract boolean isConnected();
+
+  public abstract InetAddress getLocalAddress();
 
   protected abstract Optional<byte[]> readData(int length);
 

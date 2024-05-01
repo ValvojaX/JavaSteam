@@ -1,6 +1,7 @@
 package com.javasteam.steam.connection;
 
 import java.io.*;
+import java.net.InetAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.Optional;
@@ -98,6 +99,12 @@ public class TCPConnection extends BaseConnection {
                 log.error("Failed to write data", e);
               }
             });
+  }
+
+  public InetAddress getLocalAddress() {
+    return getContext()
+        .map(connectionContext -> connectionContext.getSocket().getLocalAddress())
+        .orElse(null);
   }
 
   private Optional<ConnectionContext> getContext() {

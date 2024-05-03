@@ -21,10 +21,17 @@ import java.util.Optional;
 public class Message<T extends BaseStruct> extends AbstractMessage<Header, T> {
   private Header header;
   private T body;
+  private byte[] bodyBytes; // Only to be used when message body is unknown
 
   private Message(int emsgId, Header header) {
     super(emsgId);
     this.header = header;
+  }
+
+  private Message(int emsgId, Header header, byte[] bodyBytes) {
+    super(emsgId);
+    this.header = header;
+    this.bodyBytes = bodyBytes;
   }
 
   private Message(int emsgId, Header header, T body) {
@@ -50,7 +57,7 @@ public class Message<T extends BaseStruct> extends AbstractMessage<Header, T> {
         StructContainer.getStructLoader(ProtoUtils.clearProtoMask(emsgId))
             .map(struct -> struct.getLoader().apply(bodyBytes));
     return body.map(b -> new Message<>(emsgId, header, (T) b))
-        .orElseGet(() -> new Message<>(emsgId, header));
+        .orElseGet(() -> new Message<>(emsgId, header, bodyBytes));
   }
 
   @Override
@@ -61,6 +68,11 @@ public class Message<T extends BaseStruct> extends AbstractMessage<Header, T> {
   @Override
   public Optional<T> getMsgBody() {
     return Optional.ofNullable(body);
+  }
+
+  @Override
+  protected byte[] getMsgBodyBytes() {
+    return bodyBytes;
   }
 
   @Override

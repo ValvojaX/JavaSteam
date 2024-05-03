@@ -21,10 +21,17 @@ import java.util.Optional;
 public class ProtoMessage<T extends GeneratedMessage> extends AbstractMessage<ProtoHeader, T> {
   private ProtoHeader header;
   private T body;
+  private byte[] bodyBytes; // Only to be used when message body is unknown
 
   private ProtoMessage(int emsgId, ProtoHeader header) {
     super(emsgId);
     this.header = header;
+  }
+
+  private ProtoMessage(int emsgId, ProtoHeader header, byte[] bodyBytes) {
+    super(emsgId);
+    this.header = header;
+    this.bodyBytes = bodyBytes;
   }
 
   private ProtoMessage(int emsgId, ProtoHeader header, T body) {
@@ -49,7 +56,7 @@ public class ProtoMessage<T extends GeneratedMessage> extends AbstractMessage<Pr
         StructContainer.getStructLoader(ProtoUtils.clearProtoMask(emsgId))
             .map(struct -> struct.getLoader().apply(bodyBytes));
     return body.map(b -> new ProtoMessage<>(emsgId, header, (T) b))
-        .orElseGet(() -> new ProtoMessage<>(emsgId, header));
+        .orElseGet(() -> new ProtoMessage<>(emsgId, header, bodyBytes));
   }
 
   @SuppressWarnings("unchecked")
@@ -60,7 +67,7 @@ public class ProtoMessage<T extends GeneratedMessage> extends AbstractMessage<Pr
         StructContainer.getStructLoader(ProtoUtils.clearProtoMask(emsgId))
             .map(struct -> struct.getLoader().apply(bodyBytes));
     return body.map(b -> new ProtoMessage<>(emsgId, header, (T) b))
-        .orElseGet(() -> new ProtoMessage<>(emsgId, header));
+        .orElseGet(() -> new ProtoMessage<>(emsgId, header, bodyBytes));
   }
 
   @Override
@@ -71,6 +78,11 @@ public class ProtoMessage<T extends GeneratedMessage> extends AbstractMessage<Pr
   @Override
   public Optional<T> getMsgBody() {
     return Optional.ofNullable(this.body);
+  }
+
+  @Override
+  protected byte[] getMsgBodyBytes() {
+    return this.bodyBytes;
   }
 
   @Override

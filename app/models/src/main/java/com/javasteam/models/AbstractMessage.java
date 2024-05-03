@@ -3,6 +3,7 @@ package com.javasteam.models;
 import com.javasteam.utils.proto.ProtoUtils;
 import com.javasteam.utils.serializer.Serializer;
 import java.util.Optional;
+import java.util.function.Function;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -31,7 +32,17 @@ public abstract class AbstractMessage<H extends Header, T> implements Serializer
 
   public abstract Optional<T> getMsgBody();
 
+  public T getMsgBody(Function<byte[], T> loader) {
+    return loader.apply(getMsgBodyBytes());
+  }
+
+  public T getMsgBody(StructLoader<T> structLoader) {
+    return structLoader.getLoader().apply(getMsgBodyBytes());
+  }
+
   public abstract Serializer getSerializer();
+
+  protected abstract byte[] getMsgBodyBytes();
 
   @Override
   public String toString() {

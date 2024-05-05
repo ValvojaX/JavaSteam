@@ -7,11 +7,21 @@ import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.QueryParam;
+import java.util.Map;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 
 @RegisterRestClient
-public interface SteamWebDirectoryRESTAPIClient extends RESTAPIClientProvider {
+@Path("/ISteamDirectory")
+public interface SteamWebDirectoryRESTAPIClient {
   @GET
-  @Path("/ISteamDirectory/GetCMList/v1")
+  @Path("/GetCMList/v1")
   Response<CMListResponse> getCMList(@QueryParam("cellid") @DefaultValue("0") int cellid);
+
+  static SteamWebDirectoryRESTAPIClient getInstance() {
+    return RESTAPIClientProvider.getRESTAPIClient(SteamWebDirectoryRESTAPIClient.class);
+  }
+
+  static SteamWebDirectoryRESTAPIClient getInstance(Map<String, Object> headers) {
+    return RESTAPIClientProvider.getRESTAPIClient(SteamWebDirectoryRESTAPIClient.class, headers);
+  }
 }

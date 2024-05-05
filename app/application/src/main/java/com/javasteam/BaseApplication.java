@@ -1,6 +1,5 @@
 package com.javasteam;
 
-import com.javasteam.protobufs.EnumsClientserver;
 import com.javasteam.steam.LoginParameters;
 import com.javasteam.steam.SteamClient;
 import io.github.cdimascio.dotenv.Dotenv;
@@ -17,11 +16,6 @@ public class BaseApplication {
     steamClient.login(
         LoginParameters.with(dotenv.get("STEAM_USERNAME"), dotenv.get("STEAM_PASSWORD")));
 
-    steamClient.addMessageListener(
-        EnumsClientserver.EMsg.k_EMsgClientLogOnResponse_VALUE,
-        msg -> {
-          log.info("Logged in: {}", msg);
-          steamClient.setGamesPlayed(List.of(730));
-        });
+    steamClient.setGamesPlayed(List.of(730));
   }
 }

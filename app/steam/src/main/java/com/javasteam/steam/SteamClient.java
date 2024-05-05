@@ -106,7 +106,7 @@ public class SteamClient extends SteamCMClient {
             EMsg.k_EMsgClientHeartBeat_VALUE,
             ProtoMessageHeader.of(EMsg.k_EMsgClientHeartBeat_VALUE, header),
             response);
-    this.write(message);
+    this.sendMessage(message);
   }
 
   public void loginAnonymous() {
@@ -135,7 +135,7 @@ public class SteamClient extends SteamCMClient {
             logonMessage);
 
     log.info("Sending client logon message:\n{}", message);
-    this.write(message);
+    this.sendMessage(message);
     this.waitForMessage(EMsg.k_EMsgClientLogOnResponse_VALUE);
   }
 
@@ -175,7 +175,7 @@ public class SteamClient extends SteamCMClient {
             logonMessage);
 
     log.info("Sending client logon message:\n{}", message);
-    this.write(message);
+    this.sendMessage(message);
     this.waitForMessage(EMsg.k_EMsgClientLogOnResponse_VALUE);
   }
 
@@ -191,7 +191,7 @@ public class SteamClient extends SteamCMClient {
             proto);
 
     log.info("Sending change status message: {}", message);
-    write(message);
+    sendMessage(message);
   }
 
   public void setGamesPlayed(List<Integer> appIds) {
@@ -215,22 +215,22 @@ public class SteamClient extends SteamCMClient {
 
     log.info("Sending games played message: {}", message);
 
-    write(message);
+    sendMessage(message);
   }
 
-  @Override
-  public boolean isConnected() {
-    return super.isConnected() && sessionContext.getSteamIdOptional().isPresent();
-  }
-
-  public <T extends GeneratedMessage> void write(ProtoMessage<T> msg) {
+  public <T extends GeneratedMessage> void sendMessage(ProtoMessage<T> msg) {
     if (msg.getMsgHeader() instanceof HasSessionContext header) {
       sessionContext
           .getSteamIdOptional()
           .ifPresent(steamId -> header.setSteamId(steamId.toSteamId64()));
       sessionContext.getSessionIdOptional().ifPresent(header::setSessionId);
     }
-    super.write(msg);
+    super.sendMessage(msg);
+  }
+
+  @Override
+  public boolean isConnected() {
+    return super.isConnected() && sessionContext.getSteamIdOptional().isPresent();
   }
 
   @Override

@@ -91,7 +91,7 @@ public class GameCoordinator implements HasListenerGroup {
             proto);
 
     log.info("Sending message to GC: {}", message);
-    steamClient.write(message);
+    steamClient.sendMessage(message);
   }
 
   @Override

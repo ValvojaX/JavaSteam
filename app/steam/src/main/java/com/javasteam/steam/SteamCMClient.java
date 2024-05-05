@@ -17,7 +17,6 @@ import com.javasteam.steam.crypto.Crypto;
 import com.javasteam.utils.common.ArrayUtils;
 import com.javasteam.utils.common.ZipUtils;
 import com.javasteam.utils.serializer.Serializer;
-import com.javasteam.webapi.RESTAPIClientProvider;
 import com.javasteam.webapi.endpoints.steamdirectory.SteamWebDirectoryRESTAPIClient;
 import com.javasteam.webapi.endpoints.steamdirectory.models.SteamCMServer;
 import java.net.InetAddress;
@@ -40,15 +39,12 @@ public class SteamCMClient implements HasListenerGroup {
 
   public SteamCMClient(int threads) {
     this.cmList =
-        RESTAPIClientProvider.getRESTAPIClient(SteamWebDirectoryRESTAPIClient.class)
-            .getCMList(0)
-            .getResponse()
-            .getServerlist();
+        SteamWebDirectoryRESTAPIClient.getInstance().getCMList(0).getResponse().getServerlist();
     this.socket = new TCPConnection(threads);
     this.initializeListeners();
   }
 
-  public <H extends Header, T> void write(AbstractMessage<H, T> msg) {
+  public <H extends Header, T> void sendMessage(AbstractMessage<H, T> msg) {
     this.socket.write(msg);
   }
 
@@ -79,7 +75,7 @@ public class SteamCMClient implements HasListenerGroup {
             res);
     log.debug("Sending channel encrypt response");
 
-    this.write(response);
+    this.sendMessage(response);
   }
 
   private void onChannelEncryptResult(AbstractMessage<MessageHeader, ChannelEncryptResult> msg) {

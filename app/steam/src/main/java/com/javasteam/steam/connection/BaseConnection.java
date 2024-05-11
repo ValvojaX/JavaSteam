@@ -5,6 +5,7 @@ import com.javasteam.models.Header;
 import com.javasteam.models.messages.Message;
 import com.javasteam.models.messages.ProtoMessage;
 import com.javasteam.steam.HasListenerGroup;
+import com.javasteam.steam.ListenerGroup;
 import com.javasteam.steam.SteamProtocol;
 import com.javasteam.steam.crypto.Crypto;
 import com.javasteam.utils.common.ArrayUtils;
@@ -105,8 +106,8 @@ public abstract class BaseConnection implements HasListenerGroup {
 
     AbstractMessage<? extends Header, Object> msg =
         ProtoUtils.isProto(EMsgId)
-            ? (AbstractMessage) ProtoMessage.fromBytes(EMsg, message)
-            : (AbstractMessage) Message.fromBytes(EMsg, message);
+            ? (AbstractMessage) ProtoMessage.fromBytes(message)
+            : (AbstractMessage) Message.fromBytes(message);
 
     listeners.onMessage(EMsg, msg);
   }

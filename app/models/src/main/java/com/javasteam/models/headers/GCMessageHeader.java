@@ -1,5 +1,7 @@
 package com.javasteam.models.headers;
 
+import com.javasteam.models.HasJob;
+import com.javasteam.models.Job;
 import com.javasteam.models.ProtoHeader;
 import com.javasteam.utils.serializer.Serializer;
 import java.nio.ByteOrder;
@@ -15,23 +17,31 @@ import lombok.Setter;
 @Getter
 @Setter(value = AccessLevel.PROTECTED)
 @AllArgsConstructor
-public class GCMessageHeader implements ProtoHeader {
+public class GCMessageHeader implements ProtoHeader, HasJob {
   public static final int size = 18;
+  private int emsgId;
   private short headerVersion;
   private long targetJobId;
   private long sourceJobId;
 
-  public GCMessageHeader() {
+  public GCMessageHeader(int emsgId) {
     super();
+    this.emsgId = emsgId;
     this.headerVersion = 1;
     this.targetJobId = -1;
     this.sourceJobId = -1;
   }
 
-  public static GCMessageHeader fromBytes(byte[] data) {
-    GCMessageHeader gcMessageHeader = new GCMessageHeader();
+  public static GCMessageHeader fromBytes(int emsgId, byte[] data) {
+    GCMessageHeader gcMessageHeader = new GCMessageHeader(emsgId);
     gcMessageHeader.load(data);
     return gcMessageHeader;
+  }
+
+  @Override
+  public void setJob(Job job) {
+    this.sourceJobId = job.getSourceJobId();
+    this.targetJobId = job.getTargetJobId();
   }
 
   @Override

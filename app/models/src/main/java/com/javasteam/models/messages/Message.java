@@ -16,52 +16,50 @@ import java.util.Optional;
  * incoming and outgoing messages that are not protobufs are represented by this class. It contains
  * the message header and the message body.
  *
+ * @param <H> the type of the message header
  * @param <T> the type of the message body
  */
-public class Message<T extends BaseStruct> extends AbstractMessage<Header, T> {
-  private Header header;
+public class Message<H extends Header, T extends BaseStruct> extends AbstractMessage<H, T> {
+  private H header;
   private T body;
   private byte[] bodyBytes; // Only to be used when message body is unknown
 
-  private Message(int emsgId, Header header) {
-    super(emsgId);
+  private Message(H header) {
     this.header = header;
   }
 
-  private Message(int emsgId, Header header, byte[] bodyBytes) {
-    super(emsgId);
+  private Message(H header, byte[] bodyBytes) {
     this.header = header;
     this.bodyBytes = bodyBytes;
   }
 
-  private Message(int emsgId, Header header, T body) {
-    super(emsgId);
+  private Message(H header, T body) {
     this.header = header;
     this.body = body;
   }
 
-  public static <T extends BaseStruct> Message<T> of(int emsgId, Header header) {
-    return new Message<>(emsgId, header);
+  public static <H extends Header, T extends BaseStruct> Message<H, T> of(H header) {
+    return new Message<>(header);
   }
 
-  public static <T extends BaseStruct> Message<T> of(int emsgId, Header header, T body) {
-    return new Message<>(emsgId, header, body);
+  public static <H extends Header, T extends BaseStruct> Message<H, T> of(H header, T body) {
+    return new Message<>(header, body);
   }
 
   @SuppressWarnings("unchecked")
-  public static <T extends BaseStruct> Message<T> fromBytes(int emsgId, byte[] data) {
+  public static <H extends Header, T extends BaseStruct> Message<H, T> fromBytes(byte[] data) {
     var header = MessageHeader.fromBytes(data);
 
     var bodyBytes = ArrayUtils.subarray(data, header.getSize(), data.length - header.getSize());
     var body =
-        StructContainer.getStructLoader(ProtoUtils.clearProtoMask(emsgId))
+        StructContainer.getStructLoader(ProtoUtils.clearProtoMask(header.getEmsgId()))
             .map(struct -> struct.getLoader().apply(bodyBytes));
-    return body.map(b -> new Message<>(emsgId, header, (T) b))
-        .orElseGet(() -> new Message<>(emsgId, header, bodyBytes));
+    return body.map(b -> new Message<>((H) header, (T) b))
+        .orElseGet(() -> new Message<>((H) header, bodyBytes));
   }
 
   @Override
-  public Header getMsgHeader() {
+  public H getMsgHeader() {
     return header;
   }
 
@@ -83,7 +81,7 @@ public class Message<T extends BaseStruct> extends AbstractMessage<Header, T> {
             .addByteArrayField(
                 getMsgHeader().getSize(),
                 () -> this.header.serialize(),
-                bytes -> this.header = MessageHeader.fromBytes(bytes));
+                bytes -> header.getSerializer().unpack(bytes));
     getMsgBody()
         .ifPresent(
             body ->
@@ -92,7 +90,7 @@ public class Message<T extends BaseStruct> extends AbstractMessage<Header, T> {
                     body::serialize,
                     bytes ->
                         this.body =
-                            StructContainer.getStructLoader(getEmsg())
+                            StructContainer.getStructLoader(getEMsg())
                                 .map(struct -> (T) struct.getLoader().apply(bytes))
                                 .orElse(null)));
     return result.build();

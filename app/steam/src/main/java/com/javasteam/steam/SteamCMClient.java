@@ -68,11 +68,7 @@ public class SteamCMClient implements HasListenerGroup {
     ChannelEncryptResponse res = new ChannelEncryptResponse(1, 128, encryptedSessionKey, crc, 0);
     log.debug("ChannelEncryptResponse: \n{}", res);
 
-    Message<ChannelEncryptResponse> response =
-        Message.of(
-            EMsg.k_EMsgChannelEncryptResponse_VALUE,
-            MessageHeader.of(EMsg.k_EMsgChannelEncryptResponse_VALUE),
-            res);
+    var response = Message.of(MessageHeader.of(EMsg.k_EMsgChannelEncryptResponse_VALUE), res);
     log.debug("Sending channel encrypt response");
 
     this.sendMessage(response);

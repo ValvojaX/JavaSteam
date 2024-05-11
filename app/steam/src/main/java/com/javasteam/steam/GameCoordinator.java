@@ -51,13 +51,12 @@ public class GameCoordinator implements HasListenerGroup {
     var header =
         ProtoUtils.isProto(response.getMsgtype())
             ? GCProtoMessageHeader.fromBytes(response.getPayload().toByteArray())
-            : GCMessageHeader.fromBytes(response.getPayload().toByteArray());
+            : GCMessageHeader.fromBytes(response.getMsgtype(), response.getPayload().toByteArray());
 
     byte[] payload = response.getPayload().toByteArray();
 
     ProtoMessage message =
         ProtoMessage.fromBytes(
-            response.getMsgtype(),
             header,
             ArrayUtils.subarray(payload, header.getSize(), payload.length - header.getSize()));
 
@@ -85,10 +84,7 @@ public class GameCoordinator implements HasListenerGroup {
             .build();
 
     var message =
-        ProtoMessage.of(
-            EMsg.k_EMsgClientToGC_VALUE,
-            ProtoMessageHeader.of(EMsg.k_EMsgClientToGC_VALUE, header),
-            proto);
+        ProtoMessage.of(ProtoMessageHeader.of(EMsg.k_EMsgClientToGC_VALUE, header), proto);
 
     log.info("Sending message to GC: {}", message);
     steamClient.sendMessage(message);

@@ -2,7 +2,6 @@ package com.javasteam.steam;
 
 import com.javasteam.models.AbstractMessage;
 import com.javasteam.models.Header;
-import com.javasteam.steam.connection.ListenerGroup;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 

@@ -4,7 +4,9 @@ import static com.javasteam.protobufs.GameCoordinatorMessages.CMsgProtoBufHeader
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.javasteam.models.AbstractProtoHeader;
+import com.javasteam.models.HasJob;
 import com.javasteam.models.HasSessionContext;
+import com.javasteam.models.Job;
 import com.javasteam.utils.proto.ProtoUtils;
 import com.javasteam.utils.serializer.Serializer;
 import java.nio.ByteBuffer;
@@ -21,14 +23,14 @@ import lombok.Setter;
 @Getter
 @Setter(value = AccessLevel.PROTECTED)
 public class GCProtoMessageHeader extends AbstractProtoHeader<CMsgProtoBufHeader>
-    implements HasSessionContext {
+    implements HasSessionContext, HasJob {
 
-  public GCProtoMessageHeader(int emsg, CMsgProtoBufHeader proto) {
-    super(emsg, proto);
+  public GCProtoMessageHeader(int emsgId, CMsgProtoBufHeader proto) {
+    super(emsgId, proto);
   }
 
-  public static GCProtoMessageHeader of(int emsg, CMsgProtoBufHeader proto) {
-    return new GCProtoMessageHeader(emsg, proto);
+  public static GCProtoMessageHeader of(int emsgId, CMsgProtoBufHeader proto) {
+    return new GCProtoMessageHeader(emsgId, proto);
   }
 
   public static GCProtoMessageHeader fromBytes(byte[] data) {
@@ -47,6 +49,17 @@ public class GCProtoMessageHeader extends AbstractProtoHeader<CMsgProtoBufHeader
 
   public static CMsgProtoBufHeader getDefaultProto() {
     return CMsgProtoBufHeader.getDefaultInstance();
+  }
+
+  @Override
+  public void setJob(Job job) {
+    var builder =
+        getProto().toBuilder()
+            .setJobIdSource(job.getSourceJobId())
+            .setJobIdTarget(job.getTargetJobId());
+
+    job.getJobNameOptional().ifPresent(builder::setTargetJobName);
+    setProto(builder.build());
   }
 
   @Override

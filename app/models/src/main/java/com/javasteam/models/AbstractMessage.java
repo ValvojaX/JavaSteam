@@ -18,14 +18,16 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Getter
 public abstract class AbstractMessage<H extends Header, T> implements SerializerProvider {
-  private final int emsgId;
-  private final int emsg;
-  private final String emsgName;
+  public int getEMsgId() {
+    return getMsgHeader().getEmsgId();
+  }
 
-  protected AbstractMessage(int emsgId) {
-    this.emsgId = emsgId;
-    this.emsg = ProtoUtils.clearProtoMask(emsgId);
-    this.emsgName = ProtoUtils.resolveEMsg(emsg).map(Enum::name).orElse("Unknown");
+  public int getEMsg() {
+    return ProtoUtils.clearProtoMask(getEMsgId());
+  }
+
+  public String getEMsgName() {
+    return ProtoUtils.resolveEMsg(getEMsg()).map(Enum::name).orElse("Unknown");
   }
 
   public abstract H getMsgHeader();
@@ -46,7 +48,7 @@ public abstract class AbstractMessage<H extends Header, T> implements Serializer
 
   @Override
   public String toString() {
-    return "emsg: %s (%s)\n".formatted(emsg, emsgName)
+    return "emsg: %s (%s)\n".formatted(getEMsg(), getEMsgName())
         + "------ Header ------\n"
         + getMsgHeader().toString()
         + "------ Body ------\n"

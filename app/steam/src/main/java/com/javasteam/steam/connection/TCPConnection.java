@@ -1,12 +1,12 @@
 package com.javasteam.steam.connection;
 
+import com.javasteam.models.HasReadWriteLock;
 import java.io.*;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.Optional;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -14,7 +14,7 @@ import lombok.extern.slf4j.Slf4j;
  * TCP connection to a remote host and sending and receiving data over the connection.
  */
 @Slf4j
-public class TCPConnection extends BaseConnection {
+public class TCPConnection extends BaseConnection implements HasReadWriteLock {
   private ConnectionContext context;
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
   private static final int DEFAULT_SOCKET_TIMEOUT = 0;
@@ -25,6 +25,16 @@ public class TCPConnection extends BaseConnection {
 
   public TCPConnection(int threads) {
     super(threads);
+  }
+
+  public InetAddress getLocalAddress() {
+    return getContext()
+        .map(connectionContext -> connectionContext.getSocket().getLocalAddress())
+        .orElse(null);
+  }
+
+  private Optional<ConnectionContext> getContext() {
+    return withReadLock(() -> Optional.ofNullable(context).filter(ConnectionContext::isConnected));
   }
 
   public void connect(String host, int port) {
@@ -101,31 +111,8 @@ public class TCPConnection extends BaseConnection {
             });
   }
 
-  public InetAddress getLocalAddress() {
-    return getContext()
-        .map(connectionContext -> connectionContext.getSocket().getLocalAddress())
-        .orElse(null);
-  }
-
-  private Optional<ConnectionContext> getContext() {
-    return withReadLock(() -> Optional.ofNullable(context).filter(ConnectionContext::isConnected));
-  }
-
-  private <T> T withReadLock(Supplier<T> supplier) {
-    lock.readLock().lock();
-    try {
-      return supplier.get();
-    } finally {
-      lock.readLock().unlock();
-    }
-  }
-
-  private void withWriteLock(Runnable runnable) {
-    lock.writeLock().lock();
-    try {
-      runnable.run();
-    } finally {
-      lock.writeLock().unlock();
-    }
+  @Override
+  public ReentrantReadWriteLock getLock() {
+    return lock;
   }
 }

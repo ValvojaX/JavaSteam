@@ -1,13 +1,13 @@
-package com.javasteam.steam.connection;
+package com.javasteam.steam;
 
 import com.javasteam.models.AbstractMessage;
+import com.javasteam.models.HasReadWriteLock;
 import com.javasteam.models.Header;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +17,7 @@ import lombok.extern.slf4j.Slf4j;
  * manage the listeners for a connection.
  */
 @Slf4j
-public class ListenerGroup {
+public class ListenerGroup implements HasReadWriteLock {
   private static final int DEFAULT_THREADS = 10;
   private final List<ListenerGroupItem> items;
   private final ScheduledExecutorService executor;
@@ -39,16 +39,9 @@ public class ListenerGroup {
             item ->
                 item.getConsumer()
                     .ifPresent(
-                        consumer -> executor.execute(() -> exceptionGuard(consumer).accept(msg))));
-
-    getItems(item -> item.getEmsg() == emsg && item.isFuture())
-        .forEach(
-            item ->
-                item.getConsumer()
-                    .ifPresent(
                         consumer -> {
                           executor.execute(() -> exceptionGuard(consumer).accept(msg));
-                          item.getFuture().complete(null);
+                          item.getFuture().map(f -> f.complete(null));
                         }));
   }
 
@@ -69,14 +62,16 @@ public class ListenerGroup {
   public <H extends Header, T> void waitForMessage(
       int emsg, Consumer<AbstractMessage<H, T>> listener) {
     var future = new CompletableFuture<Void>();
-    addMessageListener(
-        ListenerGroupItem.builder()
-            .setEmsg(emsg)
-            .setConsumer((Consumer) listener)
-            .setFuture(future)
-            .build());
+    var item =
+        addMessageListener(
+            ListenerGroupItem.builder()
+                .setEmsg(emsg)
+                .setConsumer((Consumer) listener)
+                .setFuture(future)
+                .build());
 
     future.join();
+    removeItem(item);
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
@@ -112,7 +107,7 @@ public class ListenerGroup {
   }
 
   public <H extends Header> void notifyMessageListeners(AbstractMessage<H, Object> message) {
-    onMessage(message.getEmsg(), message);
+    onMessage(message.getEMsg(), message);
   }
 
   private List<ListenerGroupItem> getItems(Predicate<ListenerGroupItem> predicate) {
@@ -121,6 +116,21 @@ public class ListenerGroup {
 
   private void removeItem(ListenerGroupItem item) {
     withWriteLock(() -> items.remove(item));
+  }
+
+  private <T> Consumer<T> exceptionGuard(Consumer<T> consumer) {
+    return t -> {
+      try {
+        consumer.accept(t);
+      } catch (Exception e) {
+        log.error("Error in listener", e);
+      }
+    };
+  }
+
+  @Override
+  public ReentrantReadWriteLock getLock() {
+    return lock;
   }
 
   @Getter
@@ -135,36 +145,8 @@ public class ListenerGroup {
       return Optional.ofNullable(consumer);
     }
 
-    public boolean isFuture() {
-      return future != null;
-    }
-  }
-
-  private <T> Consumer<T> exceptionGuard(Consumer<T> consumer) {
-    return t -> {
-      try {
-        consumer.accept(t);
-      } catch (Exception e) {
-        log.error("Error in listener", e);
-      }
-    };
-  }
-
-  private <T> T withReadLock(Supplier<T> supplier) {
-    lock.readLock().lock();
-    try {
-      return supplier.get();
-    } finally {
-      lock.readLock().unlock();
-    }
-  }
-
-  private void withWriteLock(Runnable runnable) {
-    lock.writeLock().lock();
-    try {
-      runnable.run();
-    } finally {
-      lock.writeLock().unlock();
+    public Optional<CompletableFuture<Void>> getFuture() {
+      return Optional.ofNullable(future);
     }
   }
 }

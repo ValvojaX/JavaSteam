@@ -4,7 +4,9 @@ import static com.javasteam.protobufs.SteammessagesBase.CMsgProtoBufHeader;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.javasteam.models.AbstractProtoHeader;
+import com.javasteam.models.HasJob;
 import com.javasteam.models.HasSessionContext;
+import com.javasteam.models.Job;
 import com.javasteam.utils.proto.ProtoUtils;
 import com.javasteam.utils.serializer.Serializer;
 import java.nio.ByteBuffer;
@@ -21,14 +23,14 @@ import lombok.Setter;
 @Getter
 @Setter(value = AccessLevel.PROTECTED)
 public class ProtoMessageHeader extends AbstractProtoHeader<CMsgProtoBufHeader>
-    implements HasSessionContext {
+    implements HasSessionContext, HasJob {
 
-  private ProtoMessageHeader(int emsg, CMsgProtoBufHeader proto) {
-    super(emsg, proto);
+  private ProtoMessageHeader(int emsgId, CMsgProtoBufHeader proto) {
+    super(emsgId, proto);
   }
 
-  public static ProtoMessageHeader of(int emsg, CMsgProtoBufHeader proto) {
-    return new ProtoMessageHeader(emsg, proto);
+  public static ProtoMessageHeader of(int emsgId, CMsgProtoBufHeader proto) {
+    return new ProtoMessageHeader(emsgId, proto);
   }
 
   public static ProtoMessageHeader fromBytes(byte[] data) {
@@ -57,5 +59,17 @@ public class ProtoMessageHeader extends AbstractProtoHeader<CMsgProtoBufHeader>
   @Override
   public void setSteamId(long steamId) {
     setProto(getProto().toBuilder().setSteamid(steamId).build());
+  }
+
+  @Override
+  public void setJob(Job job) {
+    var builder =
+        getProto().toBuilder()
+            .setJobidSource(job.getSourceJobId())
+            .setJobidTarget(job.getTargetJobId());
+
+    job.getJobNameOptional().ifPresent(builder::setTargetJobName);
+    job.getRealmOptional().ifPresent(builder::setRealm);
+    setProto(builder.build());
   }
 }

@@ -20,23 +20,23 @@ import lombok.Setter;
 @AllArgsConstructor
 public abstract class AbstractProtoHeader<T extends GeneratedMessage> implements ProtoHeader {
   public static final int size = 8;
-  private int emsg;
+  private int emsgId;
   private int protoLength;
   private T proto;
 
-  public AbstractProtoHeader(int emsg, T proto) {
+  public AbstractProtoHeader(int emsgId, T proto) {
     super();
-    this.emsg = emsg;
+    this.emsgId = emsgId;
     this.proto = proto;
     this.protoLength = proto.getSerializedSize();
   }
 
   public int getEmsgMasked() {
-    return ProtoUtils.setProtoMask(emsg);
+    return ProtoUtils.setProtoMask(emsgId);
   }
 
   public void setEmsgMasked(int emsg) {
-    this.emsg = ProtoUtils.clearProtoMask(emsg);
+    this.emsgId = ProtoUtils.clearProtoMask(emsg);
   }
 
   public int getProtoLength() {
@@ -67,7 +67,7 @@ public abstract class AbstractProtoHeader<T extends GeneratedMessage> implements
 
   @Override
   public String toString() {
-    return "emsg: %s\n".formatted(emsg)
+    return "emsg: %s\n".formatted(emsgId)
         + "protoLength: %s\n".formatted(protoLength)
         + "------ Proto ------\n"
         + proto.toString();

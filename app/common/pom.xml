@@ -8,32 +8,17 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>models</artifactId>
+    <artifactId>common</artifactId>
     <packaging>jar</packaging>
-    <name>JavaSteam - Models</name>
+    <name>JavaSteam - Common</name>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
     <dependencies>
         <dependency>
-            <groupId>com.google.protobuf</groupId>
-            <artifactId>protobuf-java</artifactId>
-            <version>${protobuf.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.javasteam</groupId>
-            <artifactId>protobufs</artifactId>
-            <version>1.0-SNAPSHOT</version>
-        </dependency>
-        <dependency>
             <groupId>com.javasteam</groupId>
             <artifactId>utils</artifactId>
-            <version>1.0-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>com.javasteam</groupId>
-            <artifactId>common</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
     </dependencies>

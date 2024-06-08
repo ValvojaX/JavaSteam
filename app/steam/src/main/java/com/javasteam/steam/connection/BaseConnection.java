@@ -1,20 +1,22 @@
 package com.javasteam.steam.connection;
 
-import com.javasteam.models.steam.BaseMsg;
-import com.javasteam.models.steam.BaseMsgHeader;
-import com.javasteam.models.steam.messages.Message;
-import com.javasteam.models.steam.messages.ProtoMessage;
-import com.javasteam.steam.SteamProtocol;
+import com.javasteam.models.AbstractMessage;
+import com.javasteam.models.Header;
+import com.javasteam.models.messages.Message;
+import com.javasteam.models.messages.ProtoMessage;
+import com.javasteam.steam.common.SteamProtocol;
 import com.javasteam.steam.crypto.Crypto;
+import com.javasteam.steam.handlers.HasMessageHandler;
+import com.javasteam.steam.handlers.MessageHandler;
 import com.javasteam.utils.common.ArrayUtils;
 import com.javasteam.utils.proto.ProtoUtils;
 import com.javasteam.utils.serializer.Serializer;
+import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Consumer;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -24,27 +26,21 @@ import lombok.extern.slf4j.Slf4j;
  * handling incoming messages.
  */
 @Slf4j
-public abstract class BaseConnection {
+public abstract class BaseConnection implements HasMessageHandler {
   @Setter private byte[] sessionKey;
-  private final ListenerGroup listeners = new ListenerGroup();
+  private final MessageHandler listeners;
   private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
   public BaseConnection() {
+    this.listeners = new MessageHandler();
     this.executor.scheduleWithFixedDelay(
         this::read, 0, 100, java.util.concurrent.TimeUnit.MILLISECONDS);
   }
 
-  public <H extends BaseMsgHeader, T> void addMessageListener(
-      int emsg, Consumer<BaseMsg<H, T>> listener) {
-    listeners.addMessageListener(emsg, listener);
-  }
-
-  public void waitForMessage(int emsg) {
-    listeners.waitForMessage(emsg);
-  }
-
-  public <H extends BaseMsgHeader> void notifyMessageListeners(BaseMsg<H, Object> message) {
-    listeners.notifyMessageListeners(message);
+  public BaseConnection(int threads) {
+    this.listeners = new MessageHandler(threads);
+    this.executor.scheduleWithFixedDelay(
+        this::read, 0, 100, java.util.concurrent.TimeUnit.MILLISECONDS);
   }
 
   private void read() {
@@ -55,7 +51,7 @@ public abstract class BaseConnection {
     readData(SteamProtocol.PACKET_HEADER_SIZE)
         .ifPresentOrElse(
             headerBytes -> {
-              log.debug("Received header: [{}] {}", headerBytes.length, headerBytes);
+              log.trace("Received header: [{}] {}", headerBytes.length, headerBytes);
 
               int messageLength =
                   Serializer.unpack(headerBytes, ByteBuffer::getInt, ByteOrder.LITTLE_ENDIAN);
@@ -74,7 +70,7 @@ public abstract class BaseConnection {
                   .ifPresent(
                       bodyData -> {
                         byte[] packet = ArrayUtils.concat(headerBytes, bodyData);
-                        log.debug("Received message: [{}] {}", packet.length, packet);
+                        log.trace("Received message: [{}] {}", packet.length, packet);
                         this.onRawPacket(packet);
                       });
             },
@@ -91,14 +87,14 @@ public abstract class BaseConnection {
     if (this.sessionKey != null) {
       byte[] channelHmac = ArrayUtils.subarray(this.sessionKey, 0, 16);
       byte[] decryptedMessage = Crypto.decryptMessage(message, this.sessionKey, channelHmac);
-      log.debug("Decrypted message: [{}] {}", decryptedMessage.length, decryptedMessage);
+      log.trace("Decrypted message: [{}] {}", decryptedMessage.length, decryptedMessage);
       message = decryptedMessage;
     }
 
     this.onRawMessage(message);
   }
 
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({"unchecked", "rawtypes"})
   public void onRawMessage(byte[] message) {
     int EMsgId = Serializer.unpack(message, ByteBuffer::getInt, ByteOrder.LITTLE_ENDIAN);
     int EMsg = ProtoUtils.clearProtoMask(EMsgId);
@@ -108,15 +104,15 @@ public abstract class BaseConnection {
         ProtoUtils.resolveEMsg(EMsg).map(Enum::name).orElse("Unknown"),
         message.length);
 
-    BaseMsg<? extends BaseMsgHeader, Object> msg =
+    AbstractMessage<? extends Header, Object> msg =
         ProtoUtils.isProto(EMsgId)
-            ? (BaseMsg) ProtoMessage.of(EMsg, message)
-            : (BaseMsg) Message.of(EMsg, message);
+            ? (AbstractMessage) ProtoMessage.fromBytes(message)
+            : (AbstractMessage) Message.fromBytes(message);
 
     listeners.onMessage(EMsg, msg);
   }
 
-  public <H extends BaseMsgHeader, T> void write(BaseMsg<H, T> msg) {
+  public <H extends Header, T> void write(AbstractMessage<H, T> msg) {
     byte[] data = msg.serialize();
     if (this.sessionKey != null) {
       data =
@@ -129,7 +125,7 @@ public abstract class BaseConnection {
             Serializer.pack(
                 SteamProtocol.PACKET_MAGIC, ByteBuffer::putInt, ByteOrder.LITTLE_ENDIAN, 4),
             data);
-    log.debug("Sending packet: [{}] {}", packet.length, packet);
+    log.trace("Sending packet: [{}] {}", packet.length, packet);
     writeData(packet);
   }
 
@@ -139,7 +135,14 @@ public abstract class BaseConnection {
 
   public abstract boolean isConnected();
 
+  public abstract InetAddress getLocalAddress();
+
   protected abstract Optional<byte[]> readData(int length);
 
   protected abstract void writeData(byte[] data);
+
+  @Override
+  public MessageHandler getMessageHandler() {
+    return listeners;
+  }
 }

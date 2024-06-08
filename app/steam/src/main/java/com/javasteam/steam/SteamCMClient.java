@@ -2,29 +2,31 @@ package com.javasteam.steam;
 
 import static com.javasteam.protobufs.EnumsClientserver.EMsg;
 import static com.javasteam.protobufs.SteammessagesBase.CMsgMulti;
-import static com.javasteam.protobufs.SteammessagesBase.CMsgProtoBufHeader;
 
-import com.javasteam.models.steam.BaseMsg;
-import com.javasteam.models.steam.BaseMsgHeader;
-import com.javasteam.models.steam.headers.MsgHeader;
-import com.javasteam.models.steam.headers.MsgHeaderProto;
-import com.javasteam.models.steam.messages.Message;
-import com.javasteam.models.steam.structs.ChannelEncryptRequest;
-import com.javasteam.models.steam.structs.ChannelEncryptResponse;
-import com.javasteam.models.steam.structs.ChannelEncryptResult;
+import com.javasteam.models.AbstractMessage;
+import com.javasteam.models.Header;
+import com.javasteam.models.ProtoHeader;
+import com.javasteam.models.headers.MessageHeader;
+import com.javasteam.models.messages.Message;
+import com.javasteam.models.structs.ChannelEncryptRequest;
+import com.javasteam.models.structs.ChannelEncryptResponse;
+import com.javasteam.models.structs.ChannelEncryptResult;
 import com.javasteam.steam.common.EResult;
 import com.javasteam.steam.connection.TCPConnection;
 import com.javasteam.steam.crypto.Crypto;
+import com.javasteam.steam.handlers.HasMessageHandler;
 import com.javasteam.utils.common.ArrayUtils;
+import com.javasteam.utils.common.CryptoUtils;
 import com.javasteam.utils.common.ZipUtils;
 import com.javasteam.utils.serializer.Serializer;
 import com.javasteam.webapi.endpoints.steamdirectory.SteamWebDirectoryRESTAPIClient;
 import com.javasteam.webapi.endpoints.steamdirectory.models.SteamCMServer;
+import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -33,31 +35,19 @@ import lombok.extern.slf4j.Slf4j;
  * server. Uses the {@link TCPConnection} class to handle the TCP connection.
  */
 @Slf4j
-public class SteamCMClient {
+public class SteamCMClient implements HasMessageHandler {
   private final List<SteamCMServer> cmList;
   private final TCPConnection socket;
   private byte[] sessionKey;
 
-  public SteamCMClient(SteamWebDirectoryRESTAPIClient webDirectoryClient) {
-    this.cmList = webDirectoryClient.getCMList(0).getResponse().getServerlist();
-    this.socket = new TCPConnection();
+  public SteamCMClient(int threads) {
+    this.cmList =
+        SteamWebDirectoryRESTAPIClient.getInstance().getCMList(0).getResponse().getServerlist();
+    this.socket = new TCPConnection(threads);
     this.initializeListeners();
   }
 
-  public <H extends BaseMsgHeader, T> void addMessageListener(
-      int emsg, Consumer<BaseMsg<H, T>> listener) {
-    this.socket.addMessageListener(emsg, listener);
-  }
-
-  public <H extends BaseMsgHeader> void notifyMessageListeners(BaseMsg<H, Object> message) {
-    this.socket.notifyMessageListeners(message);
-  }
-
-  public void waitForMessage(int emsg) {
-    this.socket.waitForMessage(emsg);
-  }
-
-  public <H extends BaseMsgHeader, T> void write(BaseMsg<H, T> msg) {
+  public <H extends Header, T> void sendMessage(AbstractMessage<H, T> msg) {
     this.socket.write(msg);
   }
 
@@ -67,48 +57,36 @@ public class SteamCMClient {
     this.addMessageListener(EMsg.k_EMsgMulti_VALUE, this::onMulti);
   }
 
-  private void onChannelEncryptRequest(BaseMsg<MsgHeader, ChannelEncryptRequest> msg) {
-    log.info("Received channel encrypt request:\n{}", msg);
-
+  private void onChannelEncryptRequest(AbstractMessage<MessageHeader, ChannelEncryptRequest> msg) {
     ChannelEncryptRequest request =
         msg.getMsgBody().orElseThrow(() -> new RuntimeException("No body found in message"));
-    log.debug("ChannelEncryptRequest: \n{}", request);
 
-    this.sessionKey = Crypto.generateSessionKey();
+    this.sessionKey = CryptoUtils.getRandomBytes(32);
+    log.trace("Generated session key: {}", Arrays.toString(sessionKey));
+
     byte[] encryptedSessionKey = Crypto.encryptSessionKey(sessionKey, request.getChallenge());
-    int crc = Crypto.calculateCRC32(encryptedSessionKey);
+    int crc = CryptoUtils.calculateCRC32(encryptedSessionKey);
 
     ChannelEncryptResponse res = new ChannelEncryptResponse(1, 128, encryptedSessionKey, crc, 0);
-    log.debug("ChannelEncryptResponse: \n{}", res);
+    var response = Message.of(MessageHeader.of(EMsg.k_EMsgChannelEncryptResponse_VALUE), res);
 
-    Message<ChannelEncryptResponse> response =
-        Message.of(
-            EMsg.k_EMsgChannelEncryptResponse_VALUE,
-            MsgHeader.of(EMsg.k_EMsgChannelEncryptResponse_VALUE).serialize(),
-            res.serialize());
-    log.debug("Sending channel encrypt response");
-
-    this.write(response);
+    this.sendMessage(response);
   }
 
-  private void onChannelEncryptResult(BaseMsg<MsgHeader, ChannelEncryptResult> msg) {
-    log.info("Received channel encrypt result:\n{}", msg);
-
+  private void onChannelEncryptResult(AbstractMessage<MessageHeader, ChannelEncryptResult> msg) {
     ChannelEncryptResult result =
         msg.getMsgBody().orElseThrow(() -> new RuntimeException("No body found in message"));
 
-    log.debug("ChannelEncryptResult: \n{}", result);
-
     if (result.getResult() == EResult.OK) {
       this.socket.setSessionKey(this.sessionKey);
-      log.info("Channel encryption successful");
+      log.debug("Channel encryption successful");
     } else {
       log.error("Channel encryption failed");
     }
   }
 
-  private void onMulti(BaseMsg<MsgHeaderProto<CMsgProtoBufHeader>, CMsgMulti> msg) {
-    log.info("Received multi message:\n{}", msg);
+  private void onMulti(AbstractMessage<ProtoHeader, CMsgMulti> msg) {
+    log.debug("Received multi message:\n{}", msg);
 
     CMsgMulti multi =
         msg.getMsgBody().orElseThrow(() -> new RuntimeException("No body found in message"));
@@ -116,7 +94,7 @@ public class SteamCMClient {
     byte[] messages = multi.getMessageBody().toByteArray();
     if (multi.getSizeUnzipped() != 0) {
       messages = ZipUtils.unzip(multi.getMessageBody().toByteArray());
-      log.info("Decompressed message body: {} bytes", messages.length);
+      log.trace("Decompressed message body: {} bytes", messages.length);
     }
 
     int index = 0;
@@ -131,7 +109,7 @@ public class SteamCMClient {
     }
   }
 
-  public void connect() {
+  protected void connect() {
     if (socket.isConnected()) {
       log.debug("Tried to connect to Steam CM server while already connected");
       return;
@@ -152,7 +130,20 @@ public class SteamCMClient {
     waitForMessage(EMsg.k_EMsgChannelEncryptResult_VALUE);
   }
 
+  public boolean isConnected() {
+    return socket.isConnected();
+  }
+
+  public InetAddress getLocalAddress() {
+    return socket.getLocalAddress();
+  }
+
   public void disconnect() {
     socket.disconnect();
+  }
+
+  @Override
+  public HasMessageHandler getInstance() {
+    return this.socket;
   }
 }

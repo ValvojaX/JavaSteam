@@ -22,6 +22,13 @@ import com.javasteam.models.headers.ProtoMessageHeader;
 import com.javasteam.models.messages.ProtoMessage;
 import com.javasteam.steam.common.EPersonaState;
 import com.javasteam.steam.common.EResult;
+import com.javasteam.steam.common.SteamProtocol;
+import com.javasteam.steam.handlers.HasJobHandler;
+import com.javasteam.steam.handlers.HasJobSender;
+import com.javasteam.steam.handlers.JobHandler;
+import com.javasteam.steam.session.AuthSession;
+import com.javasteam.steam.session.AuthSessionService;
+import com.javasteam.steam.session.SteamSessionContext;
 import com.javasteam.steam.steamid.SteamId;
 import com.javasteam.steam.steamid.Type;
 import com.javasteam.steam.steamid.Universe;
@@ -31,6 +38,7 @@ import java.nio.ByteOrder;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -49,11 +57,13 @@ import lombok.extern.slf4j.Slf4j;
  * }</pre>
  */
 @Slf4j
-public class SteamClient extends SteamCMClient implements HasJobHandler {
+public class SteamClient extends SteamCMClient implements HasJobHandler, HasJobSender {
   private static final int DEFAULT_THREADS = 10;
+  private static final int AUTH_SESSION_REFRESH_INTERVAL = 12;
   private SteamSessionContext sessionContext;
   private final ScheduledExecutorService executor;
   private final JobHandler jobHandler;
+  private final AuthSessionService<SteamClient> authSessionService;
 
   public SteamClient(int threads) {
     super(threads);
@@ -61,6 +71,7 @@ public class SteamClient extends SteamCMClient implements HasJobHandler {
     this.jobHandler = new JobHandler(threads);
     this.sessionContext = new SteamSessionContext();
     this.executor = Executors.newSingleThreadScheduledExecutor();
+    this.authSessionService = AuthSessionService.of(this, this::onAuthSession);
   }
 
   public SteamClient() {
@@ -122,7 +133,7 @@ public class SteamClient extends SteamCMClient implements HasJobHandler {
   }
 
   private void sendHeartbeat() {
-    log.debug("Sending client heartbeat");
+    log.trace("Sending client heartbeat");
 
     CMsgClientLogonResponse response = CMsgClientLogonResponse.newBuilder().build();
 
@@ -134,11 +145,8 @@ public class SteamClient extends SteamCMClient implements HasJobHandler {
   }
 
   public void loginAnonymous() {
-    if (this.isConnected()) {
-      throw new RuntimeException("Client is already connected");
-    }
+    preLogin();
 
-    this.connect();
     SteamId steamId = SteamId.of(Universe.PUBLIC, Type.ANON_USER);
     this.sessionContext.setSteamId(steamId);
     log.info("Logging in anonymously with Steam ID: {}", steamId);
@@ -162,13 +170,7 @@ public class SteamClient extends SteamCMClient implements HasJobHandler {
   }
 
   public void login(LoginParameters loginParameters) {
-    if (this.isConnected()) {
-      throw new RuntimeException("Client is already connected");
-    }
-
-    this.connect();
-    SteamId steamId = SteamId.of(Universe.PUBLIC, Type.INDIVIDUAL);
-    this.sessionContext.setSteamId(steamId);
+    preLogin();
 
     int ipv4Address =
         Serializer.unpack(getLocalAddress().getAddress(), ByteBuffer::getInt, ByteOrder.BIG_ENDIAN);
@@ -184,19 +186,56 @@ public class SteamClient extends SteamCMClient implements HasJobHandler {
                         CMsgIPAddress.newBuilder().setV4(obfuscatedAddress).build()))
             .build();
 
+    if (loginParameters.getAuthSession() != null) {
+      var authSession = loginParameters.getAuthSession();
+      log.info("Parsed previous auth session for user: {}", authSession.getUsername());
+      this.sessionContext.setUsername(authSession.getUsername());
+      this.sessionContext.setSteamId(SteamId.of(authSession.getSteamIdFromRefreshToken()));
+      this.sessionContext.setAuthSession(authSession);
+
+      if (authSession.isRefreshTokenExpired()) {
+        log.warn("Refresh token in auth session of user {} is expired", authSession.getUsername());
+      }
+    } else {
+      this.sessionContext.setUsername(logonMessage.getAccountName());
+      this.sessionContext.setSteamId(SteamId.of(Universe.PUBLIC, Type.INDIVIDUAL));
+    }
+
     log.info(
-        "Logging in with username: {} and Steam ID: {}", logonMessage.getAccountName(), steamId);
+        "Logging in with username: {} and Steam ID: {}",
+        this.sessionContext.getUsername(),
+        this.sessionContext.getSteamId().toSteamId64());
 
     CMsgProtoBufHeader headerProto =
-        CMsgProtoBufHeader.newBuilder().setSteamid(steamId.toSteamId64()).build();
+        CMsgProtoBufHeader.newBuilder()
+            .setSteamid(this.sessionContext.getSteamId().toSteamId64())
+            .build();
 
     var message =
         ProtoMessage.of(
             ProtoMessageHeader.of(EMsg.k_EMsgClientLogon_VALUE, headerProto), logonMessage);
 
-    log.info("Sending client logon message:\n{}", message);
+    log.debug("Sending client logon message:\n{}", message);
     this.sendMessage(message);
     this.waitForMessage(EMsg.k_EMsgClientLogOnResponse_VALUE);
+
+    if (shouldCreateAuthSession(logonMessage)) {
+      log.info("Creating auth session for user: {}", logonMessage.getAccountName());
+      authSessionService.createAuthSession(
+          logonMessage.getAccountName(),
+          logonMessage.getPassword(),
+          loginParameters.getAuthSessionSaveFilePath());
+    }
+
+    sessionContext
+        .getAuthSession()
+        .map(
+            session ->
+                executor.scheduleAtFixedRate(
+                    () -> refreshAuthSession(session),
+                    AUTH_SESSION_REFRESH_INTERVAL,
+                    AUTH_SESSION_REFRESH_INTERVAL,
+                    TimeUnit.HOURS));
   }
 
   public void setState(EPersonaState state) {
@@ -232,6 +271,30 @@ public class SteamClient extends SteamCMClient implements HasJobHandler {
     sendMessage(message);
   }
 
+  private void preLogin() {
+    if (this.isConnected()) {
+      throw new RuntimeException("Client is already connected");
+    }
+
+    this.connect();
+  }
+
+  private void onAuthSession(AuthSession authSession) {
+    log.info("Received auth session: \n{}", authSession);
+    sessionContext.setAuthSession(authSession);
+  }
+
+  private void refreshAuthSession(AuthSession authSession) {
+    log.debug("Refreshing auth session for user: {}", authSession.getUsername());
+    authSessionService.updateAccessToken(authSession, true);
+  }
+
+  private boolean shouldCreateAuthSession(CMsgClientLogon logonMessage) {
+    return logonMessage.hasPassword()
+        && logonMessage.getShouldRememberPassword()
+        && sessionContext.getAuthSession().isPresent();
+  }
+
   public <H extends ProtoHeader, T extends GeneratedMessage> void sendMessage(
       ProtoMessage<H, T> msg) {
     if (msg.getMsgHeader() instanceof HasSessionContext header) {
@@ -243,6 +306,7 @@ public class SteamClient extends SteamCMClient implements HasJobHandler {
     super.sendMessage(msg);
   }
 
+  @Override
   public synchronized <H extends Header & HasJob> Job sendJob(
       AbstractMessage<H, ?> message, Job job) {
     job.setSourceJobId(getJobHandler().getNextJobId());

@@ -14,12 +14,30 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <apache.commons.lang3.version>3.14.0</apache.commons.lang3.version>
+        <apache.commons.codec.version>1.17.0</apache.commons.codec.version>
+        <jackson.version>2.17.1</jackson.version>
     </properties>
     <dependencies>
         <dependency>
             <groupId>com.javasteam</groupId>
             <artifactId>protobufs</artifactId>
             <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>${apache.commons.lang3.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+            <version>${apache.commons.codec.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
         </dependency>
     </dependencies>
 </project>

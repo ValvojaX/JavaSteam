@@ -4,10 +4,10 @@ import com.javasteam.models.AbstractMessage;
 import com.javasteam.models.Header;
 import com.javasteam.models.messages.Message;
 import com.javasteam.models.messages.ProtoMessage;
-import com.javasteam.steam.HasListenerGroup;
-import com.javasteam.steam.ListenerGroup;
-import com.javasteam.steam.SteamProtocol;
+import com.javasteam.steam.common.SteamProtocol;
 import com.javasteam.steam.crypto.Crypto;
+import com.javasteam.steam.handlers.HasMessageHandler;
+import com.javasteam.steam.handlers.MessageHandler;
 import com.javasteam.utils.common.ArrayUtils;
 import com.javasteam.utils.proto.ProtoUtils;
 import com.javasteam.utils.serializer.Serializer;
@@ -26,19 +26,19 @@ import lombok.extern.slf4j.Slf4j;
  * handling incoming messages.
  */
 @Slf4j
-public abstract class BaseConnection implements HasListenerGroup {
+public abstract class BaseConnection implements HasMessageHandler {
   @Setter private byte[] sessionKey;
-  private final ListenerGroup listeners;
+  private final MessageHandler listeners;
   private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
   public BaseConnection() {
-    this.listeners = new ListenerGroup();
+    this.listeners = new MessageHandler();
     this.executor.scheduleWithFixedDelay(
         this::read, 0, 100, java.util.concurrent.TimeUnit.MILLISECONDS);
   }
 
   public BaseConnection(int threads) {
-    this.listeners = new ListenerGroup(threads);
+    this.listeners = new MessageHandler(threads);
     this.executor.scheduleWithFixedDelay(
         this::read, 0, 100, java.util.concurrent.TimeUnit.MILLISECONDS);
   }
@@ -51,7 +51,7 @@ public abstract class BaseConnection implements HasListenerGroup {
     readData(SteamProtocol.PACKET_HEADER_SIZE)
         .ifPresentOrElse(
             headerBytes -> {
-              log.debug("Received header: [{}] {}", headerBytes.length, headerBytes);
+              log.trace("Received header: [{}] {}", headerBytes.length, headerBytes);
 
               int messageLength =
                   Serializer.unpack(headerBytes, ByteBuffer::getInt, ByteOrder.LITTLE_ENDIAN);
@@ -70,7 +70,7 @@ public abstract class BaseConnection implements HasListenerGroup {
                   .ifPresent(
                       bodyData -> {
                         byte[] packet = ArrayUtils.concat(headerBytes, bodyData);
-                        log.debug("Received message: [{}] {}", packet.length, packet);
+                        log.trace("Received message: [{}] {}", packet.length, packet);
                         this.onRawPacket(packet);
                       });
             },
@@ -87,7 +87,7 @@ public abstract class BaseConnection implements HasListenerGroup {
     if (this.sessionKey != null) {
       byte[] channelHmac = ArrayUtils.subarray(this.sessionKey, 0, 16);
       byte[] decryptedMessage = Crypto.decryptMessage(message, this.sessionKey, channelHmac);
-      log.debug("Decrypted message: [{}] {}", decryptedMessage.length, decryptedMessage);
+      log.trace("Decrypted message: [{}] {}", decryptedMessage.length, decryptedMessage);
       message = decryptedMessage;
     }
 
@@ -125,7 +125,7 @@ public abstract class BaseConnection implements HasListenerGroup {
             Serializer.pack(
                 SteamProtocol.PACKET_MAGIC, ByteBuffer::putInt, ByteOrder.LITTLE_ENDIAN, 4),
             data);
-    log.debug("Sending packet: [{}] {}", packet.length, packet);
+    log.trace("Sending packet: [{}] {}", packet.length, packet);
     writeData(packet);
   }
 
@@ -142,7 +142,7 @@ public abstract class BaseConnection implements HasListenerGroup {
   protected abstract void writeData(byte[] data);
 
   @Override
-  public ListenerGroup getListenerGroup() {
+  public MessageHandler getMessageHandler() {
     return listeners;
   }
 }

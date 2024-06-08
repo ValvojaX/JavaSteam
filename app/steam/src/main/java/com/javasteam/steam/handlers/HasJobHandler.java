@@ -1,4 +1,4 @@
-package com.javasteam.steam;
+package com.javasteam.steam.handlers;
 
 /**
  * Helper interface to delegate {@link JobHandler} methods. Implement either of the methods {@link

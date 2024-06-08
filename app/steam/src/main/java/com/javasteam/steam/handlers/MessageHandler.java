@@ -1,4 +1,4 @@
-package com.javasteam.steam;
+package com.javasteam.steam.handlers;
 
 import com.javasteam.models.AbstractMessage;
 import com.javasteam.models.HasReadWriteLock;
@@ -13,22 +13,22 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * A group of listeners that can be added to and triggered by a message. This class is used to
+ * Steam message listener container where callback listeners can be added to. This class is used to
  * manage the listeners for a connection.
  */
 @Slf4j
-public class ListenerGroup implements HasReadWriteLock {
+public class MessageHandler implements HasReadWriteLock {
   private static final int DEFAULT_THREADS = 10;
-  private final List<ListenerGroupItem> items;
+  private final List<MessageHandlerItem> items;
   private final ScheduledExecutorService executor;
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
-  public ListenerGroup() {
+  public MessageHandler() {
     this.executor = Executors.newScheduledThreadPool(DEFAULT_THREADS);
     this.items = new ArrayList<>();
   }
 
-  public ListenerGroup(int threads) {
+  public MessageHandler(int threads) {
     this.executor = Executors.newScheduledThreadPool(threads);
     this.items = new ArrayList<>();
   }
@@ -45,15 +45,15 @@ public class ListenerGroup implements HasReadWriteLock {
                         }));
   }
 
-  public ListenerGroupItem addMessageListener(ListenerGroupItem item) {
+  public MessageHandlerItem addMessageListener(MessageHandlerItem item) {
     withWriteLock(() -> items.add(item));
     return item;
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
-  public <H extends Header, T> ListenerGroupItem addMessageListener(
+  public <H extends Header, T> MessageHandlerItem addMessageListener(
       int emsg, Consumer<AbstractMessage<H, T>> listener) {
-    var item = ListenerGroupItem.builder().setEmsg(emsg).setConsumer((Consumer) listener).build();
+    var item = MessageHandlerItem.builder().setEmsg(emsg).setConsumer((Consumer) listener).build();
     addMessageListener(item);
     return item;
   }
@@ -64,7 +64,7 @@ public class ListenerGroup implements HasReadWriteLock {
     var future = new CompletableFuture<Void>();
     var item =
         addMessageListener(
-            ListenerGroupItem.builder()
+            MessageHandlerItem.builder()
                 .setEmsg(emsg)
                 .setConsumer((Consumer) listener)
                 .setFuture(future)
@@ -80,7 +80,7 @@ public class ListenerGroup implements HasReadWriteLock {
     var future = new CompletableFuture<Void>();
     var item =
         addMessageListener(
-            ListenerGroupItem.builder()
+            MessageHandlerItem.builder()
                 .setEmsg(emsg)
                 .setConsumer((Consumer) listener)
                 .setFuture(future)
@@ -110,11 +110,11 @@ public class ListenerGroup implements HasReadWriteLock {
     onMessage(message.getEMsg(), message);
   }
 
-  private List<ListenerGroupItem> getItems(Predicate<ListenerGroupItem> predicate) {
+  private List<MessageHandlerItem> getItems(Predicate<MessageHandlerItem> predicate) {
     return withReadLock(() -> items.stream().filter(predicate).toList());
   }
 
-  private void removeItem(ListenerGroupItem item) {
+  private void removeItem(MessageHandlerItem item) {
     withWriteLock(() -> items.remove(item));
   }
 
@@ -135,7 +135,7 @@ public class ListenerGroup implements HasReadWriteLock {
 
   @Getter
   @Builder(setterPrefix = "set")
-  public static class ListenerGroupItem {
+  public static class MessageHandlerItem {
     private int emsg;
     private Consumer<AbstractMessage<? extends Header, Object>> consumer;
     private CompletableFuture<Void> future;

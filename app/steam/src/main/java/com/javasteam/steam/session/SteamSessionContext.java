@@ -1,4 +1,4 @@
-package com.javasteam.steam;
+package com.javasteam.steam.session;
 
 import com.javasteam.steam.steamid.SteamId;
 import java.util.Optional;
@@ -13,8 +13,10 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class SteamSessionContext {
+  private String username;
   private SteamId steamId;
   private Integer sessionId;
+  private AuthSession authSession;
 
   public Optional<SteamId> getSteamIdOptional() {
     return Optional.ofNullable(steamId);
@@ -22,5 +24,9 @@ public class SteamSessionContext {
 
   public Optional<Integer> getSessionIdOptional() {
     return Optional.ofNullable(sessionId);
+  }
+
+  public Optional<AuthSession> getAuthSession() {
+    return Optional.ofNullable(authSession);
   }
 }

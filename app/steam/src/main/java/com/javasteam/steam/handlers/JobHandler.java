@@ -1,4 +1,4 @@
-package com.javasteam.steam;
+package com.javasteam.steam.handlers;
 
 import com.javasteam.models.HasReadWriteLock;
 import java.util.ArrayList;

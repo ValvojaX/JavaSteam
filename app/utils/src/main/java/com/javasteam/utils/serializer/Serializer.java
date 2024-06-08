@@ -50,12 +50,19 @@ public class Serializer {
     return fields.stream().mapToInt(SerializationField::size).sum();
   }
 
-  public byte[] pack() {
+  public byte[] pack(boolean flipArray) {
     int size = fields.stream().mapToInt(SerializationField::size).sum();
     ByteBuffer buffer = ByteBuffer.allocate(size);
     buffer.order(this.byteOrder);
     fields.forEach(field -> field.bufferSetter().accept(buffer, field.fieldGetter().get()));
+    if (flipArray) {
+      buffer.flip();
+    }
     return buffer.array();
+  }
+
+  public byte[] pack() {
+    return pack(false);
   }
 
   public void unpack(byte[] data) {
@@ -92,6 +99,12 @@ public class Serializer {
       return this;
     }
 
+    public SerializerBuilder addByteField(Supplier<Byte> getter, Consumer<Byte> setter) {
+      serializer.addField(
+          SerializationField.of(1, ByteBuffer::get, ByteBuffer::put, getter, setter));
+      return this;
+    }
+
     public SerializerBuilder addByteArrayField(
         int size, Supplier<byte[]> getter, Consumer<byte[]> setter) {
       serializer.addField(
@@ -103,6 +116,22 @@ public class Serializer {
                 return data;
               },
               ByteBuffer::put,
+              getter,
+              setter));
+      return this;
+    }
+
+    public SerializerBuilder addStringField(
+        int size, Supplier<String> getter, Consumer<String> setter) {
+      serializer.addField(
+          SerializationField.of(
+              size,
+              buffer -> {
+                byte[] data = new byte[size];
+                buffer.get(data);
+                return new String(data);
+              },
+              (buffer, value) -> buffer.put(value.getBytes()),
               getter,
               setter));
       return this;

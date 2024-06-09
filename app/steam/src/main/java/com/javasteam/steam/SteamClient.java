@@ -42,18 +42,17 @@ import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Steam client that connects to a CM server and listens for messages. Handles the client logon
- * process and sends heartbeats to the CM server. The client can be used to send and receive
- * messages from the CM server.
+ * Steam client for interacting with Steam CM servers. Provides methods for logging in and support
+ * for jobs. Also creates a session with an access token for possible web API requests.
  *
  * <p>Example usage:
  *
  * <pre>{@code
  * SteamClient client = new SteamClient();
- * client.login(username, password);
  * client.addMessageListener(EMsg.k_EMsgClientLogon, msg -> {
  *     // Handle client logon message
  * });
+ * client.login(username, password);
  * }</pre>
  */
 @Slf4j
@@ -72,6 +71,11 @@ public class SteamClient extends SteamCMClient implements HasJobHandler, HasJobS
     this.sessionContext = new SteamSessionContext();
     this.executor = Executors.newSingleThreadScheduledExecutor();
     this.authSessionService = AuthSessionService.of(this, this::onAuthSession);
+    this.executor.scheduleAtFixedRate(
+        this::refreshAuthSession,
+        AUTH_SESSION_REFRESH_INTERVAL,
+        AUTH_SESSION_REFRESH_INTERVAL,
+        TimeUnit.HOURS);
   }
 
   public SteamClient() {
@@ -85,6 +89,16 @@ public class SteamClient extends SteamCMClient implements HasJobHandler, HasJobS
     this.addMessageListener(EMsg.k_EMsgClientServiceCall_VALUE, this::onClientServiceCall);
     this.addMessageListener(
         EMsg.k_EMsgClientServiceCallResponse_VALUE, this::onClientServiceCallResponse);
+  }
+
+  private void refreshAuthSession() {
+    sessionContext
+        .getAuthSession()
+        .ifPresent(
+            session -> {
+              log.info("Refreshing auth session for user: {}", session.getUsername());
+              authSessionService.updateAccessToken(session, true);
+            });
   }
 
   private void onClientPersonaState(
@@ -226,16 +240,6 @@ public class SteamClient extends SteamCMClient implements HasJobHandler, HasJobS
           logonMessage.getPassword(),
           loginParameters.getAuthSessionSaveFilePath());
     }
-
-    sessionContext
-        .getAuthSession()
-        .map(
-            session ->
-                executor.scheduleAtFixedRate(
-                    () -> refreshAuthSession(session),
-                    AUTH_SESSION_REFRESH_INTERVAL,
-                    AUTH_SESSION_REFRESH_INTERVAL,
-                    TimeUnit.HOURS));
   }
 
   public void setState(EPersonaState state) {
@@ -282,11 +286,6 @@ public class SteamClient extends SteamCMClient implements HasJobHandler, HasJobS
   private void onAuthSession(AuthSession authSession) {
     log.info("Received auth session: \n{}", authSession);
     sessionContext.setAuthSession(authSession);
-  }
-
-  private void refreshAuthSession(AuthSession authSession) {
-    log.debug("Refreshing auth session for user: {}", authSession.getUsername());
-    authSessionService.updateAccessToken(authSession, true);
   }
 
   private boolean shouldCreateAuthSession(CMsgClientLogon logonMessage) {

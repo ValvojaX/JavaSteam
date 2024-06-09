@@ -30,9 +30,9 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Basic Steam CM client that connects to a CM server and listens for messages. It also handles the
- * channel encryption process. The client can be used to send and receive messages from the CM
- * server. Uses the {@link TCPConnection} class to handle the TCP connection.
+ * Basic Steam CM client that connects to a CM server and listens for messages. Handles the channel
+ * encryption process and multi msg processing. The client can be used to send and receive messages
+ * from the CM server. Uses the {@link TCPConnection} class for the connection.
  */
 @Slf4j
 public class SteamCMClient implements HasMessageHandler {

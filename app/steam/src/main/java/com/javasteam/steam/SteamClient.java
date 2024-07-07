@@ -110,7 +110,7 @@ public class SteamClient extends SteamCMClient implements HasJobHandler, HasJobS
     log.info("Received service method response:\n{}", msg);
     var headerProto = msg.getMsgHeader().getProto();
     var bodyBytes = msg.getMsgBody(bytes -> bytes);
-    this.jobHandler.onJob(headerProto.getJobidTarget(), bodyBytes);
+    this.jobHandler.notifyListeners(headerProto.getJobidTarget(), bodyBytes);
   }
 
   private void onClientServiceCall(AbstractMessage<ProtoMessageHeader, CMsgClientServiceCall> msg) {

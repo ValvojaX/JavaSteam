@@ -109,7 +109,7 @@ public abstract class BaseConnection implements HasMessageHandler {
             ? (AbstractMessage) ProtoMessage.fromBytes(message)
             : (AbstractMessage) Message.fromBytes(message);
 
-    listeners.onMessage(EMsg, msg);
+    listeners.notifyListeners(EMsg, msg);
   }
 
   public <H extends Header, T> void write(AbstractMessage<H, T> msg) {

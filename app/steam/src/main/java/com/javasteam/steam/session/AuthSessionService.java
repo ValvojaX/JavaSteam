@@ -91,24 +91,24 @@ public class AuthSessionService<T extends HasJobSender & HasJobHandler> {
             ProtoMessage.of(createServiceMethodCallHeader(), message),
             Job.of("Authentication.GenerateAccessTokenForApp#1", 1));
 
-    client.waitForJob(
-        job.getSourceJobId(),
-        bytes -> {
-          try {
-            return CAuthentication_AccessToken_GenerateForApp_Response.parseFrom(bytes);
-          } catch (InvalidProtocolBufferException e) {
-            throw new RuntimeException(e);
-          }
-        },
-        response -> {
-          log.debug("Access token updated for user: {}", authSession.getUsername());
-          if (response.hasRefreshToken()) {
-            authSession.setRefreshToken(response.getRefreshToken());
-          }
+    var response =
+        client.waitForJob(
+            job.getSourceJobId(),
+            bytes -> {
+              try {
+                return CAuthentication_AccessToken_GenerateForApp_Response.parseFrom(bytes);
+              } catch (InvalidProtocolBufferException e) {
+                throw new RuntimeException(e);
+              }
+            });
 
-          authSession.setAccessToken(response.getAccessToken());
-          saveAuthSession(authSession);
-        });
+    log.debug("Access token updated for user: {}", authSession.getUsername());
+    if (response.hasRefreshToken()) {
+      authSession.setRefreshToken(response.getRefreshToken());
+    }
+
+    authSession.setAccessToken(response.getAccessToken());
+    saveAuthSession(authSession);
   }
 
   public void saveAuthSession(AuthSession authSession) {

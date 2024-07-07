@@ -1,10 +1,17 @@
 package com.javasteam.steam.handlers;
 
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
+import java.util.function.Function;
+
 /**
  * Helper interface to delegate {@link JobHandler} methods. Implement either of the methods {@link
  * #getJobHandler()} or {@link #getJobHandlerInstance()} to delegate the methods.
  */
 public interface HasJobHandler {
+
   /** Implement this method if you have access to the {@link JobHandler} object */
   default JobHandler getJobHandler() {
     return getJobHandlerInstance().getJobHandler();
@@ -15,43 +22,58 @@ public interface HasJobHandler {
     return null;
   }
 
-  default <T> JobHandler.JobItem<T> addJobListener(JobHandler.JobItem<T> jobItem) {
-    return getJobHandler().addJobListener(jobItem);
+  default <T> JobHandler.JobListenerItem<T> addJobListener(JobHandler.JobListenerItem<T> item) {
+    return (JobHandler.JobListenerItem<T>) getJobHandler().addMessageListener(item);
   }
 
-  default <T> JobHandler.JobItem<T> addJobListener(
-      long sourceJobId,
-      java.util.function.Function<byte[], T> responseSupplier,
-      java.util.function.Consumer<T> listener) {
-    return getJobHandler().addJobListener(sourceJobId, responseSupplier, listener);
+  default <T> JobHandler.JobListenerItem<T> addJobListener(
+      Long id, int priority, Function<byte[], T> mapper, Consumer<T> consumer) {
+    return addJobListener(JobHandler.JobListenerItem.of(id, priority, mapper, consumer));
   }
 
-  default <T> void waitForJob(
-      long sourceJobId,
-      java.util.function.Function<byte[], T> responseSupplier,
-      java.util.function.Consumer<T> listener) {
-    getJobHandler().waitForJob(sourceJobId, responseSupplier, listener);
+  default <T> JobHandler.JobListenerItem<T> addJobListener(
+      Long id, Function<byte[], T> mapper, Consumer<T> consumer) {
+    return addJobListener(
+        JobHandler.JobListenerItem.of(id, JobHandler.DEFAULT_PRIORITY, mapper, consumer));
   }
 
-  default <T> void waitForJob(
-      long sourceJobId,
-      java.util.function.Function<byte[], T> responseSupplier,
-      java.util.function.Consumer<T> listener,
-      long timeoutMs)
-      throws java.util.concurrent.TimeoutException {
-    getJobHandler().waitForJob(sourceJobId, responseSupplier, listener, timeoutMs);
+  default <T> JobHandler.JobFutureItem<T> waitForJob(JobHandler.JobFutureItem<T> item) {
+    return (JobHandler.JobFutureItem<T>) getJobHandler().addMessageFuture(item);
   }
 
-  default void waitForJob(long sourceJobId) {
-    getJobHandler().waitForJob(sourceJobId);
+  default <T> T waitForJob(Long id, Function<byte[], T> mapper, long timeoutMs, int priority)
+      throws TimeoutException {
+    try {
+      return waitForJob(JobHandler.JobFutureItem.of(id, priority, mapper))
+          .getFuture()
+          .get(timeoutMs, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException | ExecutionException | TimeoutException exception) {
+      throw new TimeoutException("Timeout waiting for job %d".formatted(id));
+    }
   }
 
-  default void waitForJob(long sourceJobId, long timeoutMs)
-      throws java.util.concurrent.TimeoutException {
-    getJobHandler().waitForJob(sourceJobId, timeoutMs);
+  default <T> T waitForJob(Long id, Function<byte[], T> mapper, long timeoutMs)
+      throws TimeoutException {
+    try {
+      return waitForJob(JobHandler.JobFutureItem.of(id, JobHandler.DEFAULT_PRIORITY, mapper))
+          .getFuture()
+          .get(timeoutMs, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException | ExecutionException | TimeoutException exception) {
+      throw new TimeoutException("Timeout waiting for job %d".formatted(id));
+    }
   }
 
-  default void notifyJobListeners(long sourceJobId, byte[] bodyBytes) {
-    getJobHandler().notifyJobListeners(sourceJobId, bodyBytes);
+  default <T> T waitForJob(Long id, int priority, Function<byte[], T> mapper) {
+    return waitForJob(JobHandler.JobFutureItem.of(id, priority, mapper)).getFuture().join();
+  }
+
+  default <T> T waitForJob(Long id, Function<byte[], T> mapper) {
+    return waitForJob(JobHandler.JobFutureItem.of(id, JobHandler.DEFAULT_PRIORITY, mapper))
+        .getFuture()
+        .join();
+  }
+
+  default <T> void notifyJobListeners(Long id, T item) {
+    getJobHandler().notifyListeners(id, item);
   }
 }

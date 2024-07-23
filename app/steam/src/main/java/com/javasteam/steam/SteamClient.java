@@ -108,8 +108,8 @@ public class SteamClient extends SteamCMClient implements HasJobHandler, HasJobS
 
   private void onServiceMethodResponse(AbstractMessage<ProtoMessageHeader, byte[]> msg) {
     log.info("Received service method response:\n{}", msg);
-    var headerProto = msg.getMsgHeader().getProto();
-    var bodyBytes = msg.getMsgBody(bytes -> bytes);
+    var headerProto = msg.getHeader().getProto();
+    var bodyBytes = msg.getBody(bytes -> bytes);
     this.jobHandler.notifyListeners(headerProto.getJobidTarget(), bodyBytes);
   }
 
@@ -126,16 +126,14 @@ public class SteamClient extends SteamCMClient implements HasJobHandler, HasJobS
       AbstractMessage<ProtoMessageHeader, CMsgClientLogonResponse> msg) {
     log.info("Received client logon response:\n{}", msg);
 
-    CMsgClientLogonResponse response =
-        msg.getMsgBody()
-            .orElseThrow(() -> new RuntimeException("Failed to parse client logon response"));
+    CMsgClientLogonResponse response = msg.getBody(CMsgClientLogonResponse.class);
 
     if (response.getEresult() != EResult.OK) {
       throw new RuntimeException("Failed to log in, EResult: " + response.getEresult());
     }
 
     this.sessionContext.setSteamId(SteamId.of(response.getClientSuppliedSteamid()));
-    this.sessionContext.setSessionId(msg.getMsgHeader().getProto().getClientSessionid());
+    this.sessionContext.setSessionId(msg.getHeader().getProto().getClientSessionid());
 
     log.info("Starting client heartbeat, interval: {} seconds", response.getHeartbeatSeconds());
     int heartbeatInterval = response.getHeartbeatSeconds();
@@ -296,7 +294,7 @@ public class SteamClient extends SteamCMClient implements HasJobHandler, HasJobS
 
   public <H extends ProtoHeader, T extends GeneratedMessage> void sendMessage(
       ProtoMessage<H, T> msg) {
-    if (msg.getMsgHeader() instanceof HasSessionContext header) {
+    if (msg.getHeader() instanceof HasSessionContext header) {
       sessionContext
           .getSteamIdOptional()
           .ifPresent(steamId -> header.setSteamId(steamId.toSteamId64()));
@@ -309,7 +307,7 @@ public class SteamClient extends SteamCMClient implements HasJobHandler, HasJobS
   public synchronized <H extends Header & HasJob> Job sendJob(
       AbstractMessage<H, ?> message, Job job) {
     job.setSourceJobId(getJobHandler().getNextJobId());
-    message.getMsgHeader().setJob(job);
+    message.getHeader().setJob(job);
     sendMessage(message);
     return job;
   }

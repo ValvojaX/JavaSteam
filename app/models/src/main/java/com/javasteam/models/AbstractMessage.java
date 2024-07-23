@@ -18,40 +18,44 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Getter
 public abstract class AbstractMessage<H extends Header, T> implements SerializerProvider {
-  public int getEMsgId() {
-    return getMsgHeader().getEmsgId();
+  private final byte[] data;
+
+  protected AbstractMessage(byte[] data) {
+    this.data = data;
   }
 
   public int getEMsg() {
-    return ProtoUtils.clearProtoMask(getEMsgId());
+    return ProtoUtils.clearProtoMask(getHeader().getEmsgId());
   }
 
   public String getEMsgName() {
     return ProtoUtils.resolveEMsg(getEMsg()).map(Enum::name).orElse("Unknown");
   }
 
-  public abstract H getMsgHeader();
-
-  public abstract Optional<T> getMsgBody();
-
-  public T getMsgBody(Function<byte[], T> loader) {
-    return loader.apply(getMsgBodyBytes());
+  public T getBody(Function<byte[], T> loader) {
+    return loader.apply(getBodyBytes());
   }
 
-  public T getMsgBody(StructLoader<T> structLoader) {
-    return structLoader.getLoader().apply(getMsgBodyBytes());
+  protected byte[] getHeaderBytes() {
+    return getHeader().serialize();
   }
+
+  public abstract Optional<T> getBody();
+
+  public abstract H getHeader();
+
+  public abstract T getBody(Class<T> clazz);
+
+  protected abstract byte[] getBodyBytes();
 
   public abstract Serializer getSerializer();
-
-  protected abstract byte[] getMsgBodyBytes();
 
   @Override
   public String toString() {
     return "emsg: %s (%s)\n".formatted(getEMsg(), getEMsgName())
         + "------ Header ------\n"
-        + getMsgHeader().toString()
+        + getHeader().toString()
         + "------ Body ------\n"
-        + getMsgBody().map(Object::toString).orElse("No body");
+        + getBody().map(Object::toString).orElse("No body");
   }
 }

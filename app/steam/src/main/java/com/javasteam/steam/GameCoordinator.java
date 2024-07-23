@@ -41,8 +41,7 @@ public class GameCoordinator implements HasMessageHandler {
   private void onClientFromGC(AbstractMessage<ProtoMessageHeader, CMsgGCClient> msg) {
     log.debug("Received client from GC:\n{}", msg);
 
-    CMsgGCClient response =
-        msg.getMsgBody().orElseThrow(() -> new RuntimeException("Failed to parse client from GC"));
+    CMsgGCClient response = msg.getBody(CMsgGCClient.class);
 
     if (response.getAppid() != appId) {
       log.warn("Received message for appid %s, expected %s".formatted(response.getAppid(), appId));

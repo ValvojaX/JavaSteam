@@ -58,8 +58,7 @@ public class SteamCMClient implements HasMessageHandler {
   }
 
   private void onChannelEncryptRequest(AbstractMessage<MessageHeader, ChannelEncryptRequest> msg) {
-    ChannelEncryptRequest request =
-        msg.getMsgBody().orElseThrow(() -> new RuntimeException("No body found in message"));
+    ChannelEncryptRequest request = msg.getBody(ChannelEncryptRequest.class);
 
     this.sessionKey = CryptoUtils.getRandomBytes(32);
     log.trace("Generated session key: {}", Arrays.toString(sessionKey));
@@ -74,8 +73,7 @@ public class SteamCMClient implements HasMessageHandler {
   }
 
   private void onChannelEncryptResult(AbstractMessage<MessageHeader, ChannelEncryptResult> msg) {
-    ChannelEncryptResult result =
-        msg.getMsgBody().orElseThrow(() -> new RuntimeException("No body found in message"));
+    ChannelEncryptResult result = msg.getBody(ChannelEncryptResult.class);
 
     if (result.getResult() == EResult.OK) {
       this.socket.setSessionKey(this.sessionKey);
@@ -88,8 +86,7 @@ public class SteamCMClient implements HasMessageHandler {
   private void onMulti(AbstractMessage<ProtoHeader, CMsgMulti> msg) {
     log.debug("Received multi message:\n{}", msg);
 
-    CMsgMulti multi =
-        msg.getMsgBody().orElseThrow(() -> new RuntimeException("No body found in message"));
+    CMsgMulti multi = msg.getBody(CMsgMulti.class);
 
     byte[] messages = multi.getMessageBody().toByteArray();
     if (multi.getSizeUnzipped() != 0) {

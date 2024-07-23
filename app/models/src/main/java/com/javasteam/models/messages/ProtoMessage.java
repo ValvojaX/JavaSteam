@@ -1,15 +1,16 @@
 package com.javasteam.models.messages;
 
 import com.google.protobuf.GeneratedMessage;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.javasteam.models.AbstractMessage;
 import com.javasteam.models.ProtoHeader;
-import com.javasteam.models.containers.StructContainer;
 import com.javasteam.models.headers.ProtoMessageHeader;
 import com.javasteam.utils.common.ArrayUtils;
 import com.javasteam.utils.proto.ProtoUtils;
 import com.javasteam.utils.serializer.Serializer;
 import java.nio.ByteOrder;
 import java.util.Optional;
+import lombok.Getter;
 
 /**
  * ProtoMessage is a class that represents a protobuf message that is sent or received from the
@@ -19,29 +20,27 @@ import java.util.Optional;
  * @param <H> The type of the message header
  * @param <T> The type of the message body
  */
+@Getter
 public class ProtoMessage<H extends ProtoHeader, T extends GeneratedMessage>
     extends AbstractMessage<H, T> {
-  private H header;
+  private final H header;
   private T body;
-  private byte[] bodyBytes; // Only to be used when message body is unknown
 
-  private ProtoMessage(H header) {
-    this.header = header;
+  private ProtoMessage(byte[] data) {
+    super(data);
+    this.header = parseHeader(data);
   }
 
+  // Here in case header is a gc header
   private ProtoMessage(H header, byte[] bodyBytes) {
+    super(ArrayUtils.concat(header.serialize(), bodyBytes));
     this.header = header;
-    this.bodyBytes = bodyBytes;
   }
 
   private ProtoMessage(H header, T body) {
+    super(ArrayUtils.concat(header.serialize(), body.toByteArray()));
     this.header = header;
     this.body = body;
-  }
-
-  public static <H extends ProtoHeader, T extends GeneratedMessage> ProtoMessage<H, T> of(
-      H header) {
-    return new ProtoMessage<>(header);
   }
 
   public static <H extends ProtoHeader, T extends GeneratedMessage> ProtoMessage<H, T> of(
@@ -49,41 +48,38 @@ public class ProtoMessage<H extends ProtoHeader, T extends GeneratedMessage>
     return new ProtoMessage<>(header, body);
   }
 
-  @SuppressWarnings("unchecked")
-  public static <H extends ProtoHeader, T extends GeneratedMessage> ProtoMessage<H, T> fromBytes(
-      H header, byte[] bodyBytes) {
-    var body =
-        StructContainer.getStructLoader(ProtoUtils.clearProtoMask(header.getEmsgId()))
-            .map(struct -> struct.getLoader().apply(bodyBytes));
-    return body.map(b -> new ProtoMessage<>(header, (T) b))
-        .orElseGet(() -> new ProtoMessage<>(header, bodyBytes));
-  }
-
-  @SuppressWarnings("unchecked")
   public static <H extends ProtoHeader, T extends GeneratedMessage> ProtoMessage<H, T> fromBytes(
       byte[] data) {
-    var header = ProtoMessageHeader.fromBytes(data);
-    var bodyBytes = ArrayUtils.subarray(data, header.getSize(), data.length - header.getSize());
-    var body =
-        StructContainer.getStructLoader(ProtoUtils.clearProtoMask(header.getEmsgId()))
-            .map(struct -> struct.getLoader().apply(bodyBytes));
-    return body.map(b -> new ProtoMessage<>((H) header, (T) b))
-        .orElseGet(() -> new ProtoMessage<>((H) header, bodyBytes));
+    return new ProtoMessage<>(data);
+  }
+
+  public static <H extends ProtoHeader, T extends GeneratedMessage> ProtoMessage<H, T> fromBytes(
+      H header, byte[] bodyBytes) {
+    return new ProtoMessage<>(header, bodyBytes);
   }
 
   @Override
-  public H getMsgHeader() {
-    return header;
+  public Optional<T> getBody() {
+    return Optional.ofNullable(body);
   }
 
   @Override
-  public Optional<T> getMsgBody() {
-    return Optional.ofNullable(this.body);
+  public T getBody(Class<T> clazz) {
+    return ProtoUtils.parseFromBytes(getBodyBytes(), clazz);
+  }
+
+  @SuppressWarnings("unchecked")
+  protected H parseHeader(byte[] data) {
+    return (H) ProtoMessageHeader.fromBytes(data);
   }
 
   @Override
-  protected byte[] getMsgBodyBytes() {
-    return this.bodyBytes;
+  protected byte[] getBodyBytes() {
+    return getBody()
+        .map(GeneratedMessage::toByteArray)
+        .orElse(
+            ArrayUtils.subarray(
+                getData(), getHeader().getSize(), getData().length - getHeader().getSize()));
   }
 
   @Override
@@ -91,21 +87,22 @@ public class ProtoMessage<H extends ProtoHeader, T extends GeneratedMessage>
   public Serializer getSerializer() {
     var result =
         Serializer.builder(ByteOrder.LITTLE_ENDIAN)
-            .addByteArrayField(
-                getMsgHeader().getSize(),
-                () -> this.header.serialize(),
-                bytes -> header.getSerializer().unpack(bytes));
-    getMsgBody()
-        .ifPresent(
+            .addByteArrayField(getHeader().getSize(), getHeader()::serialize, getHeader()::load);
+
+    getBody()
+        .ifPresentOrElse(
             body ->
                 result.addByteArrayField(
                     body.getSerializedSize(),
                     body::toByteArray,
-                    bytes ->
-                        this.body =
-                            StructContainer.getStructLoader(getEMsg())
-                                .map(struct -> (T) struct.getLoader().apply(bytes))
-                                .orElse(null)));
+                    (b) -> {
+                      try {
+                        this.body = (T) body.newBuilderForType().mergeFrom(b).build();
+                      } catch (InvalidProtocolBufferException e) {
+                        throw new RuntimeException(e);
+                      }
+                    }),
+            () -> result.addByteArrayField(getBodyBytes().length, this::getBodyBytes, (b) -> {}));
     return result.build();
   }
 }

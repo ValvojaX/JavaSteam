@@ -16,7 +16,6 @@ import static com.javasteam.protobufs.SteammessagesAuthSteamclient.ETokenRenewal
 import static com.javasteam.protobufs.SteammessagesBase.CMsgProtoBufHeader;
 
 import com.google.protobuf.ByteString;
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.javasteam.models.Job;
 import com.javasteam.models.headers.ProtoMessageHeader;
 import com.javasteam.models.messages.ProtoMessage;
@@ -63,13 +62,7 @@ public class AuthSessionService<T extends HasJobSender & HasJobHandler> {
 
     client.addJobListener(
         job.getSourceJobId(),
-        bytes -> {
-          try {
-            return CAuthentication_GetPasswordRSAPublicKey_Response.parseFrom(bytes);
-          } catch (InvalidProtocolBufferException e) {
-            throw new RuntimeException(e);
-          }
-        },
+        CAuthentication_GetPasswordRSAPublicKey_Response.class,
         res -> onGetPasswordRSAPublicKeyResponse(res, username, password));
   }
 
@@ -93,14 +86,7 @@ public class AuthSessionService<T extends HasJobSender & HasJobHandler> {
 
     var response =
         client.waitForJob(
-            job.getSourceJobId(),
-            bytes -> {
-              try {
-                return CAuthentication_AccessToken_GenerateForApp_Response.parseFrom(bytes);
-              } catch (InvalidProtocolBufferException e) {
-                throw new RuntimeException(e);
-              }
-            });
+            job.getSourceJobId(), CAuthentication_AccessToken_GenerateForApp_Response.class);
 
     log.debug("Access token updated for user: {}", authSession.getUsername());
     if (response.hasRefreshToken()) {
@@ -150,13 +136,7 @@ public class AuthSessionService<T extends HasJobSender & HasJobHandler> {
 
     client.addJobListener(
         job.getSourceJobId(),
-        bytes -> {
-          try {
-            return CAuthentication_BeginAuthSessionViaCredentials_Response.parseFrom(bytes);
-          } catch (InvalidProtocolBufferException e) {
-            throw new RuntimeException(e);
-          }
-        },
+        CAuthentication_BeginAuthSessionViaCredentials_Response.class,
         this::onAuthSessionResponse);
   }
 
@@ -175,13 +155,7 @@ public class AuthSessionService<T extends HasJobSender & HasJobHandler> {
 
     client.addJobListener(
         job.getSourceJobId(),
-        bytes -> {
-          try {
-            return CAuthentication_PollAuthSessionStatus_Response.parseFrom(bytes);
-          } catch (InvalidProtocolBufferException e) {
-            throw new RuntimeException(e);
-          }
-        },
+        CAuthentication_PollAuthSessionStatus_Response.class,
         this::onPollAuthSessionStatusResponse);
   }
 

@@ -4,8 +4,10 @@ import com.javasteam.models.HasReadWriteLock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import lombok.extern.slf4j.Slf4j;
 
@@ -74,9 +76,17 @@ public class BaseMessageHandler<I> implements HasReadWriteLock {
   }
 
   @SuppressWarnings("unchecked")
-  public <T, R> FutureItem<I, R, T> addMessageFuture(FutureItem<I, R, T> item) {
-    withWriteLock(() -> futures.add((FutureItem<I, Object, Object>) item));
-    return item;
+  public <T, R> T addMessageFuture(FutureItem<I, R, T> item) {
+    try {
+      withWriteLock(() -> futures.add((FutureItem<I, Object, Object>) item));
+      if (item.getTimeoutMs() != null) {
+        return item.getFuture()
+            .get(item.getTimeoutMs(), java.util.concurrent.TimeUnit.MILLISECONDS);
+      }
+      return item.getFuture().get();
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      throw new RuntimeException("Timeout waiting for message %s".formatted(item.getId()));
+    }
   }
 
   public <R> void removeListenerItem(ListenerItem<I, R, ?> item) {
